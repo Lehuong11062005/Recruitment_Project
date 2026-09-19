@@ -1,0 +1,49 @@
+smart-recruitment-platform/
+├── README.md
+│
+├── frontend/                       # GIAO DIỆN REACTJS
+│   ├── package.json
+│   ├── src/
+│   │   ├── App.jsx                 # Routing phân quyền (Candidate, Recruiter, Admin)
+│   │   ├── components/             # Components dùng chung (Button, Input...)
+│   │   ├── pages/                  # Các màn hình chính (Login, Jobs, Dashboard...)
+│   │   └── services/
+│   │       └── api.js              # Cấu hình Axios trỏ về Gateway (http://localhost:8000)
+│
+└── services/                       # KHU VỰC BACKEND MICROSERVICES
+    │
+    ├── api-gateway/                # SERVICE 1: CỔNG ĐIỀU HƯỚNG (Port 8000)
+    │   ├── requirements.txt        # fastapi, uvicorn, httpx, python-jose
+    │   ├── .env                    # JWT_SECRET_KEY, CORE_URL=http://localhost:8001, AI_URL=http://localhost:8002
+    │   ├── main.py                 # Khởi chạy Gateway, cấu hình CORS
+    │   ├── core/                   
+    │   │   └── security.py         # Middleware xác thực JWT, phân quyền Role
+    │   └── proxy/                  # Dùng thư viện httpx chuyển tiếp request
+    │       ├── core_proxy.py       # Forward sang Core Service
+    │       └── ai_proxy.py         # Forward sang AI Service
+    │
+    ├── core-service/               # SERVICE 2: NGHIỆP VỤ & MONGODB (Port 8001)
+    │   ├── requirements.txt        # fastapi, uvicorn, motor, beanie, passlib
+    │   ├── .env                    # MONGO_URI
+    │   ├── main.py                 # Khởi chạy Core Service, kết nối MongoDB
+    │   ├── core/
+    │   │   └── database.py         # Cấu hình kết nối MongoDB với Motor/Beanie
+    │   ├── models/                 # CÁC MÔ HÌNH MONGODB (Dùng Beanie Document)
+    │   │   ├── user.py             # Model User
+    │   │   ├── job.py              # Model JobPosting
+    │   │   └── application.py      # Model Đơn ứng tuyển (lưu cả JSON kỹ năng AI bóc tách)
+    │   ├── schemas/                # Pydantic schema để validate Request/Response
+    │   ├── routers/                # Các API: auth, jobs, applications, chat
+    │   └── services/               # Logic nghiệp vụ xử lý DB
+    │
+    └── ai-service/                 # SERVICE 3: AI ENGINE (Port 8002)
+        ├── requirements.txt        # fastapi, uvicorn, pymupdf, sentence-transformers, torch
+        ├── .env
+        ├── main.py                 # Khởi chạy AI Service
+        ├── core/
+        │   └── model_loader.py     # Tải sẵn mô hình Sentence-BERT (SBERT) vào RAM
+        ├── routers/
+        │   └── ai_matching.py      # API nhận file PDF và trả về kết quả
+        └── services/
+            ├── cv_parser.py        # Logic dùng PyMuPDF đọc file PDF và bóc tách Text
+            └── similarity.py       # Tính độ tương đồng (Cosine Similarity) CV và JD
