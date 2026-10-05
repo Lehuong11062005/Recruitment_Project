@@ -1,1 +1,5 @@
-
+fastapi 
+uvicorn 
+httpx 
+python-jose 
+python-dotenv
