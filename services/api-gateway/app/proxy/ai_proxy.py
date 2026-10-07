@@ -3,7 +3,7 @@ import httpx
 from app.config import settings
 router=APIRouter()
 
-@router.api_route("/{path:path}",methods=["GET","PUT","POST","DELETE"])
+@router.api_route("/{path:path}",methods=["GET","PUT","POST","DELETE"],include_in_schema=False)
 async def proxy_ai(path:str, request:Request):
     url=f"{settings.AI_URL}/{path}"
 
