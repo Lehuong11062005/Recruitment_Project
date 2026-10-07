@@ -5,7 +5,7 @@ from app.config import settings
 
 router=APIRouter()
 
-@router.api_route("/{path}:{path}",methods=["GET","POST","PUT","DELETE"])
+@router.api_route("/{path:path}",methods=["GET","POST","PUT","DELETE"], include_in_schema=False)
 async def proxy_core(path:str,request:Request):
     url=f"{settings.CORE_URL}/{path}"
 

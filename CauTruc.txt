@@ -28,10 +28,14 @@ smart-recruitment-platform/
     │   ├── main.py                 # Khởi chạy Core Service, kết nối MongoDB
     │   ├── core/
     │   │   └── database.py         # Cấu hình kết nối MongoDB với Motor/Beanie
-    │   ├── models/                 # CÁC MÔ HÌNH MONGODB (Dùng Beanie Document)
-    │   │   ├── user.py             # Model User
-    │   │   ├── job.py              # Model JobPosting
-    │   │   └── application.py      # Model Đơn ứng tuyển (lưu cả JSON kỹ năng AI bóc tách)
+        models/
+        |   ├── user.py              # users (CandidateProfile nhúng bên trong)
+        |   ├── company.py           # companies
+        |   ├── skill.py             # skills_taxonomy
+        |   ├── job.py               # job_postings
+        |   ├── application.py       # applications
+        |   ├── notification.py      # notifications
+        |   └── chat.py              # conversations, messages
     │   ├── schemas/                # Pydantic schema để validate Request/Response
     │   ├── routers/                # Các API: auth, jobs, applications, chat
     │   └── services/               # Logic nghiệp vụ xử lý DB
