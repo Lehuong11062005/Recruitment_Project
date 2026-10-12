@@ -1,7 +1,7 @@
-import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
+from app.core.config import settings
 from app.models.user import User
 from app.models.company import Company
 from app.models.skill import SkillsTaxonomy
@@ -10,7 +10,7 @@ from app.models.application import Application
 from app.models.notification import Notification
 from app.models.chat import Conversation, Message  # Thêm 2 model chat
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/recruitment_db")
+MONGO_URI = settings.MONGO_URI
 
 async def init_db():
     client = AsyncIOMotorClient(MONGO_URI)
