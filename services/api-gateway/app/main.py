@@ -13,8 +13,8 @@ app.add_middleware(
     allow_methods=["*"] 
 )
 
-app.include_router(core_router,prefix="/api")
-app.include_router(ai_router,prefix="/ai")
+app.include_router(core_router)
+app.include_router(ai_router)
 
 @app.get("/")
 def root():
