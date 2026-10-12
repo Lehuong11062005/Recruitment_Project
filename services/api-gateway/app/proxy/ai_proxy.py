@@ -1,18 +1,35 @@
-from fastapi import APIRouter,Request
+from fastapi import APIRouter, Request, Response
 import httpx
+
 from app.config import settings
-router=APIRouter()
 
-@router.api_route("/{path:path}",methods=["GET","PUT","POST","DELETE"],include_in_schema=False)
-async def proxy_ai(path:str, request:Request):
-    url=f"{settings.AI_URL}/{path}"
+router = APIRouter()
 
-    async with httpx.AsyncClient as client:
-        response= await client.request(
+@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
+async def proxy_ai(path: str, request: Request):
+    url = f"{settings.AI_URL.rstrip('/')}/{path.lstrip('/')}"
+    # 1. BẮT BUỘC: await để lấy dữ liệu bytes thật
+    body = await request.body()
+
+    # 2. Loại bỏ header host để tránh lệch cổng khi forward
+    headers = dict(request.headers)
+    headers.pop("host", None)
+
+    # 3. Chuyển tiếp toàn bộ method, query params và body
+    async with httpx.AsyncClient() as client:
+        response = await client.request(
             method=request.method,
             url=url,
-            headers=dict(request.headers),
-            content=await request.body()
+            headers=headers,
+            params=request.query_params,
+            content=body,
+            timeout=60.0,
         )
 
-    return response.json()
+    # 4. Trả nguyên status code, content và headers về cho client/frontend
+    return Response(
+        content=response.content,
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        media_type=response.headers.get("content-type"),
+    )
