@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Biến môi trường (không commit)
+.env
+.env.local

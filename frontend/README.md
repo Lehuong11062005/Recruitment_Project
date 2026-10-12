@@ -1,16 +1,99 @@
-# React + Vite
+# Frontend: Smart Recruitment Platform (ReactJS)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Giao diện cho hệ thống tuyển dụng. Công nghệ: **React 19, Vite, Tailwind CSS 4, Axios, React Router 7**.
 
-Currently, two official plugins are available:
+## Chạy dự án
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+cd frontend
+npm install
+copy .env.example .env     # macOS/Linux: cp .env.example .env
+npm run dev                # http://localhost:5173
+```
 
-## React Compiler
+Các lệnh khác: `npm run build` (đóng gói), `npm run lint` (kiểm tra code).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Biến môi trường (`.env`, không commit)
 
-## Expanding the ESLint configuration
+| Biến | Ý nghĩa | Mặc định |
+|---|---|---|
+| `VITE_API_URL` | Địa chỉ API Gateway | `http://localhost:8000` |
+| `VITE_MOCK_AUTH` | `true`: trang đăng nhập có 3 nút vào thẳng với vai trò CANDIDATE / RECRUITER / ADMIN (không cần backend). `false`: đăng nhập thật | `true` |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Sửa `.env` xong phải **tắt và chạy lại** `npm run dev`.
+
+## Cấu trúc `src/` (theo `CauTruc.txt`)
+
+```
+src/
+├── App.jsx              Routing phân quyền (Candidate, Recruiter, Admin)
+├── main.jsx             BrowserRouter + AuthProvider
+├── services/
+│   ├── api.js           Axios trỏ về Gateway (http://localhost:8000), tự gắn JWT, xử lý 401
+│   └── authService.js, jobService.js, applicationService.js, chatService.js
+├── context/AuthContext.jsx   AuthProvider (token, user, login, logout)
+├── hooks/useAuth.js
+├── components/          PrivateRoute, GuestRoute, RootRedirect, PagePlaceholder, layouts/
+├── pages/
+│   ├── auth/            Login, Register
+│   ├── candidate/       JobList (UC-C4), JobDetail (UC-C5), MyApplications + ApplicationDetail (UC-C7), Chat (UC-C8)
+│   ├── recruiter/       ManageJobs
+│   └── admin/           Dashboard
+├── constants/           roles.js, status.js
+└── utils/               storage, jwt, http
+```
+
+## Axios và API Gateway
+
+- Mọi lời gọi API dùng `src/services/api.js`, ví dụ `const data = await jobService.searchJobs({ keyword: 'java' })`. Axios trả **thẳng body** (đã bỏ lớp `res.data`).
+- Tự gắn header `Authorization: Bearer <access_token>`.
+- Gặp lỗi **401** thì xóa phiên đăng nhập và đưa về `/login`.
+- Gửi `FormData` (upload CV) thì tự bỏ `Content-Type` để trình duyệt đặt multipart.
+- Lưu ý với người làm Gateway: frontend gọi `http://localhost:8000/api/v1/...` (khớp prefix `/api/v1` của core-service). Gateway cần chuyển tiếp đúng đường dẫn này sang Core Service.
+
+## Đăng nhập và phân quyền
+
+Response của `POST /api/v1/auth/login`: `{ access_token, token_type, user: { id, email, full_name, phone, role: "USER"|"ADMIN", user_type: "CANDIDATE"|"RECRUITER", company_id, status } }`.
+
+Vai trò trong giao diện: `ADMIN` nếu `role = ADMIN`, ngược lại lấy `user_type` (cùng quy ước `get_role_claim` của core-service). Xem `src/constants/roles.js`.
+
+`PrivateRoute` bọc nhóm route theo vai trò:
+
+```jsx
+<Route element={<PrivateRoute allowedRoles={[ROLES.CANDIDATE]} />}>
+  <Route path="/candidate" element={<CandidateLayout />}>
+    <Route path="jobs" element={<JobList />} />
+  </Route>
+</Route>
+```
+
+| Tình huống | Kết quả |
+|---|---|
+| Chưa đăng nhập vào trang riêng | `/login`, đăng nhập xong quay lại trang đang vào |
+| Sai vai trò | `/403` |
+| Đã đăng nhập vào `/login` | Về trang chủ theo vai trò |
+
+Đây chỉ là chặn ở giao diện, backend vẫn phải kiểm tra quyền cho từng API.
+
+## Route hiện có
+
+| Đường dẫn | Trang | UC |
+|---|---|---|
+| `/login`, `/register` | Đăng nhập, đăng ký | UC-C1 |
+| `/candidate` | Trang chủ ứng viên | |
+| `/candidate/jobs` | Tìm kiếm việc làm | UC-C4 |
+| `/candidate/jobs/:jobId` | Chi tiết JD + ứng tuyển | UC-C5 |
+| `/candidate/applications`, `/candidate/applications/:applicationId` | Đơn ứng tuyển, chi tiết + lịch sử trạng thái | UC-C7 |
+| `/candidate/messages`, `/candidate/messages/:conversationId` | Tin nhắn | UC-C8 |
+| `/recruiter`, `/admin` | Trang chủ Recruiter, Admin | |
+| `/403`, `*` | Không có quyền, không tìm thấy | |
+
+## Lưu ý về API
+
+`authService` dùng endpoint **thật** của core-service (`/api/v1/auth/...`). Các service `jobService`, `applicationService`, `chatService` là **giả định** vì router tương ứng của core-service còn trống; khi backend xong thì đối chiếu và sửa lại đường dẫn/tham số.
+
+## Quy ước làm việc nhóm
+
+- Mỗi UC một file trong `src/pages/<vai trò>/`; gọi API qua `src/services/`, không gọi `axios` trực tiếp trong trang.
+- Thêm route mới trong `src/App.jsx`; thêm mục menu trong file layout tương ứng ở `src/components/layouts/`.
+- Không commit file `.env`.
