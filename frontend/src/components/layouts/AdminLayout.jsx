@@ -1,7 +1,9 @@
-import DashboardLayout from './DashboardLayout'
+import DashboardLayout from './DashboardLayout';
 
-const NAV_ITEMS = [{ to: '', label: 'Thống kê' }]
+const ADMIN_NAV = [
+  { to: '/admin', label: 'Bảng điều khiển Quản trị', end: true },
+];
 
 export default function AdminLayout() {
-  return <DashboardLayout title="Quản trị" basePath="/admin" navItems={NAV_ITEMS} />
+  return <DashboardLayout roleLabel="Hệ thống Quản trị viên (Admin)" navItems={ADMIN_NAV} />;
 }

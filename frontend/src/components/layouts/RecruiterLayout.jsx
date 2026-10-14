@@ -1,7 +1,9 @@
-import DashboardLayout from './DashboardLayout'
+import DashboardLayout from './DashboardLayout';
 
-const NAV_ITEMS = [{ to: '', label: 'Quản lý tin tuyển dụng' }]
+const RECRUITER_NAV = [
+  { to: '/recruiter', label: 'Quản lý tin tuyển dụng (JD)', end: true },
+];
 
 export default function RecruiterLayout() {
-  return <DashboardLayout title="Nhà tuyển dụng" basePath="/recruiter" navItems={NAV_ITEMS} />
+  return <DashboardLayout roleLabel="Cổng Nhà tuyển dụng (HR)" navItems={RECRUITER_NAV} />;
 }

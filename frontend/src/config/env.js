@@ -1,3 +1,2 @@
-// Gom biến môi trường vào một chỗ
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-export const MOCK_AUTH = import.meta.env.VITE_MOCK_AUTH === 'true'
+export const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+export const WS_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';

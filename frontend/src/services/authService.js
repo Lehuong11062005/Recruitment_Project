@@ -1,10 +1,39 @@
-import api from './api'
+import api from './api';
 
-// Endpoint THẬT của core-service (UC-C1)
 export const authService = {
-  // body: { email, password } -> { access_token, token_type, user: { id, email, full_name, phone, role, user_type, company_id, status } }
-  login: (payload) => api.post('/api/v1/auth/login', payload),
-  // body: { email, password (>= 8 ký tự), full_name, phone?, user_type: 'CANDIDATE' | 'RECRUITER' }
-  register: (payload) => api.post('/api/v1/auth/register', payload),
-  me: () => api.get('/api/v1/auth/me'),
-}
+  /**
+   * Đăng nhập tài khoản (UC-C1, UC-R1)
+   * @param {Object} credentials - { email, password }
+   * @returns {Promise<{ access_token: string, token_type: string, user: Object }>}
+   */
+  login: (credentials) => {
+    return api.post('/api/v1/auth/login', {
+      email: credentials.email.trim().toLowerCase(),
+      password: credentials.password,
+    });
+  },
+
+  /**
+   * Đăng ký tài khoản mới (UC-C1, UC-R1)
+   * @param {Object} payload - { email, password, full_name, phone, user_type }
+   * @returns {Promise<Object>} UserResponse (201 Created)
+   */
+  register: (payload) => {
+    const body = {
+      email: payload.email.trim().toLowerCase(),
+      password: payload.password,
+      full_name: payload.full_name.trim(),
+      phone: payload.phone && payload.phone.trim() ? payload.phone.trim() : null,
+      user_type: payload.user_type,
+    };
+    return api.post('/api/v1/auth/register', body);
+  },
+
+  /**
+   * Lấy thông tin tài khoản hiện tại từ JWT token
+   * @returns {Promise<Object>} UserResponse
+   */
+  getMe: () => {
+    return api.get('/api/v1/auth/me');
+  },
+};

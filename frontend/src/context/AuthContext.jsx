@@ -1,93 +1,119 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AuthContext } from './authState'
-import { authService } from '../services/authService'
-import { MOCK_AUTH } from '../config/env'
-import { getUserRole } from '../constants/roles'
-import { storage } from '../utils/storage'
-import { isTokenExpired } from '../utils/jwt'
+import { useState, useEffect } from 'react';
+import { storage } from '../utils/storage';
+import { decodeToken, isTokenExpired } from '../utils/jwt';
+import { authService } from '../services/authService';
+import { AuthContext } from './authState';
 
-const EMPTY = { token: null, user: null }
+const normalizeUser = (rawUser, tokenPayload) => {
+  if (!rawUser && !tokenPayload) return null;
 
-// Khôi phục phiên đăng nhập khi tải lại trang
-function loadInitial() {
-  const token = storage.getToken()
-  const user = storage.getUser()
-  if (!token || !user || isTokenExpired(token)) {
-    storage.clear()
-    return EMPTY
-  }
-  return { token, user }
-}
+  // Chuẩn hóa role nghiệp vụ cho Router (ADMIN, CANDIDATE, RECRUITER)
+  const resolvedRole =
+    rawUser?.role === 'ADMIN'
+      ? 'ADMIN'
+      : rawUser?.user_type || tokenPayload?.role || rawUser?.role;
 
-// Chuyển user từ API (snake_case) sang dạng dùng trong giao diện
-function toAppUser(apiUser) {
   return {
-    id: apiUser.id,
-    fullName: apiUser.full_name,
-    email: apiUser.email,
-    phone: apiUser.phone,
-    companyId: apiUser.company_id,
-    role: getUserRole(apiUser), // CANDIDATE | RECRUITER | ADMIN
-  }
-}
+    id: rawUser?.id || tokenPayload?.sub,
+    email: rawUser?.email || tokenPayload?.email,
+    full_name: rawUser?.full_name || '',
+    phone: rawUser?.phone || null,
+    role: resolvedRole,
+    user_type: rawUser?.user_type || resolvedRole,
+    company_id: rawUser?.company_id ?? null,
+    status: rawUser?.status || 'ACTIVE',
+  };
+};
 
-export function AuthProvider({ children }) {
-  const [auth, setAuth] = useState(loadInitial)
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const persist = useCallback((token, user) => {
-    storage.setToken(token)
-    storage.setUser(user)
-    setAuth({ token, user })
-  }, [])
-
-  // Đăng nhập thật: POST /api/v1/auth/login -> { access_token, user }
-  const login = useCallback(
-    async (credentials) => {
-      const data = await authService.login(credentials)
-      const user = toAppUser(data.user)
-      if (!data.access_token || !user.role) {
-        throw new Error('Phản hồi đăng nhập thiếu access_token hoặc vai trò')
-      }
-      persist(data.access_token, user)
-      return user
-    },
-    [persist],
-  )
-
-  // Đăng nhập giả để test phân quyền khi backend chưa sẵn sàng (VITE_MOCK_AUTH=true)
-  const mockLogin = useCallback(
-    (role) => {
-      const user = { id: `mock-${role}`, fullName: `Demo ${role}`, email: `${role.toLowerCase()}@demo.local`, role }
-      persist('mock-token', user)
-      return user
-    },
-    [persist],
-  )
-
-  const logout = useCallback(() => {
-    storage.clear()
-    setAuth(EMPTY)
-  }, [])
-
-  // Axios gặp 401 thì phát sự kiện này
   useEffect(() => {
-    const handler = () => setAuth(EMPTY)
-    window.addEventListener('auth:logout', handler)
-    return () => window.removeEventListener('auth:logout', handler)
-  }, [])
+    const initAuth = async () => {
+      const token = storage.getToken();
 
-  const value = useMemo(
-    () => ({
-      user: auth.user,
-      token: auth.token,
-      isAuthenticated: Boolean(auth.token && auth.user),
-      isMockAuth: MOCK_AUTH,
-      login,
-      mockLogin,
-      logout,
-    }),
-    [auth, login, mockLogin, logout],
-  )
+      if (!token || isTokenExpired(token)) {
+        storage.clear();
+        setIsLoading(false);
+        return;
+      }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
+      const payload = decodeToken(token);
+      const cachedUser = storage.getUser();
+
+      if (cachedUser) {
+        setUser(normalizeUser(cachedUser, payload));
+        setIsAuthenticated(true);
+      } else if (payload) {
+        setUser(normalizeUser(null, payload));
+        setIsAuthenticated(true);
+      }
+
+      // Đồng bộ lại thông tin mới nhất từ /api/v1/auth/me (nếu backend đang chạy)
+      try {
+        const freshUser = await authService.getMe();
+        const normalized = normalizeUser(freshUser, payload);
+        storage.setUser(normalized);
+        setUser(normalized);
+        setIsAuthenticated(true);
+      } catch (err) {
+        // Nếu lỗi 401/403 thì xóa phiên đăng nhập
+        if (err?.status === 401 || err?.status === 403) {
+          storage.clear();
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  const login = async (credentials) => {
+    const data = await authService.login(credentials);
+    const token = data.access_token;
+
+    if (!token) {
+      throw new Error('Không nhận được token từ hệ thống');
+    }
+
+    const payload = decodeToken(token);
+    const normalizedUser = normalizeUser(data.user, payload);
+
+    storage.setToken(token);
+    storage.setUser(normalizedUser);
+
+    setUser(normalizedUser);
+    setIsAuthenticated(true);
+    return normalizedUser;
+  };
+
+  const register = async (payload) => {
+    return await authService.register(payload);
+  };
+
+  const logout = () => {
+    storage.clear();
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        login,
+        register,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
