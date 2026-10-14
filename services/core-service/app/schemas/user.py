@@ -89,6 +89,26 @@ class ProfileResponse(BaseModel):
     cv_url: Optional[str] = None
 
 
+# ---------- UPLOAD CV (UC-C3) ----------
+class SuggestedSkill(BaseModel):
+    id: PydanticObjectId
+    name: str
+
+
+class CVExtraction(BaseModel):
+    """Kết quả AI đọc CV. Chỉ là gợi ý: ứng viên xác nhận rồi mới lưu vào hồ sơ bằng PUT /me/profile."""
+    status: Literal["DONE", "SKIPPED", "FAILED"]
+    suggested_skills: List["SuggestedSkill"] = []
+    message: Optional[str] = None
+
+
+class CVUploadResponse(BaseModel):
+    cv_url: str
+    filename: str
+    size: int            # byte
+    extraction: CVExtraction
+
+
 class SkillResponse(BaseModel):
     id: PydanticObjectId
     name: str
