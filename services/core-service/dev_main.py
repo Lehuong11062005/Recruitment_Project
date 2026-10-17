@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from app.core.database import init_db
 from app.core.storage import mount_uploads
-from app.routers import auth, skills, users
+from app.routers import auth, skills, users, companies
 
 
 @asynccontextmanager
@@ -21,4 +21,5 @@ app = FastAPI(title="Core Service (DEV - Auth/Profile)", lifespan=lifespan)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users / Profile"])
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skills"])
+app.include_router(companies.router, prefix="/api/v1/companies", tags=["Company Profile"])
 mount_uploads(app)
