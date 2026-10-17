@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.database import init_db
 from app.core.storage import mount_uploads
-from app.routers import auth, users, skills, jobs, applications
+from app.routers import auth, users, skills, jobs, applications, companies
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,6 +21,7 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["Users / Profile"
 app.include_router(skills.router, prefix="/api/v1/skills", tags=["Skills"])
 app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(applications.router, prefix="/api/v1/applications", tags=["Applications"])
+app.include_router(companies.router, prefix="/api/v1/companies", tags=["Company Profile"])
 
 mount_uploads(app)  # phục vụ file CV đã upload tại /uploads
 
