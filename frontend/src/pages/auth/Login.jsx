@@ -1,91 +1,157 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { ROLE_HOME, ROLES } from '../../constants/roles'
-import { useAuth } from '../../hooks/useAuth'
-import { getErrorMessage } from '../../utils/http'
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { ROLES } from '../../constants/roles';
+import Icon from '../../components/Icon';
 
-export default function Login() {
-  const { login, mockLogin, isMockAuth } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+const Login = () => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const redirectAfterLogin = (user) => {
-    // Quay lại trang đang định vào nếu có, ngược lại về trang chủ theo vai trò
-    const from = location.state?.from?.pathname
-    navigate(from ?? ROLE_HOME[user.role] ?? '/', { replace: true })
-  }
+  const registeredMessage = location.state?.registeredMessage || '';
+  const prefillEmail = location.state?.email || '';
+
+  const [email, setEmail] = useState(prefillEmail);
+  const [password, setPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const validateForm = () => {
+    const errors = {};
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      errors.email = 'Vui lòng nhập địa chỉ email.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      errors.email = 'Địa chỉ email không đúng định dạng.';
+    }
+
+    if (!password) {
+      errors.password = 'Vui lòng nhập mật khẩu.';
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleRedirectByRole = (loggedInUser) => {
+    if (loggedInUser.role === ROLES.ADMIN) {
+      navigate('/admin', { replace: true });
+      return;
+    }
+
+    if (loggedInUser.role === ROLES.RECRUITER || loggedInUser.user_type === ROLES.RECRUITER) {
+      // Nếu Nhà tuyển dụng chưa có company_id, điều hướng kèm cờ nhắc tạo hồ sơ doanh nghiệp (UC-R2)
+      if (!loggedInUser.company_id) {
+        navigate('/recruiter/jobs', {
+          replace: true,
+          state: { requireCompanySetup: true },
+        });
+      } else {
+        navigate('/recruiter/jobs', { replace: true });
+      }
+      return;
+    }
+
+    navigate('/candidate', { replace: true });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      redirectAfterLogin(await login(form))
-    } catch (err) {
-      setError(getErrorMessage(err, 'Đăng nhập thất bại'))
-    } finally {
-      setLoading(false)
-    }
-  }
+    e.preventDefault();
+    setServerError('');
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+    if (!validateForm()) return;
+
+    setSubmitting(true);
+    try {
+      const loggedInUser = await login({ email, password });
+      handleRedirectByRole(loggedInUser);
+    } catch (err) {
+      setServerError(err?.message || 'Email hoặc mật khẩu không đúng.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-4 text-center text-2xl font-bold text-blue-700">Đăng nhập</h1>
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="Email"
-            value={form.email}
-            onChange={handleChange}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-          />
-          <input
-            name="password"
-            type="password"
-            required
-            placeholder="Mật khẩu"
-            value={form.password}
-            onChange={handleChange}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-blue-500"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-          </button>
-        </form>
-
-        {isMockAuth && (
-          <div className="mt-5 border-t border-slate-200 pt-4">
-            <p className="mb-2 text-center text-xs text-slate-500">
-              Chế độ thử (VITE_MOCK_AUTH=true): vào thẳng với vai trò
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {Object.values(ROLES).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => redirectAfterLogin(mockLogin(role))}
-                  className="rounded-md border border-slate-300 py-1.5 text-xs hover:bg-slate-100"
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
+    <main className="auth-page">
+      <section className="auth-brand">
+        <Link to="/login" className="brand brand-light">
+          <span className="brand-mark"><Icon name="spark" size={20} /></span><span>CareerAI</span>
+        </Link>
+        <div className="auth-copy">
+          <span className="auth-kicker">NỀN TẢNG TUYỂN DỤNG THÔNG MINH</span>
+          <h1 className="auth-title">Kết nối đúng người.<br />Kiến tạo đúng tương lai.</h1>
+          <p>AI giúp ứng viên tìm đúng cơ hội và doanh nghiệp chọn đúng nhân tài — nhanh hơn, chính xác hơn.</p>
+        </div>
+        <div className="auth-features">
+          <div><Icon name="file" /><span><strong>Hồ sơ nghề nghiệp tập trung</strong>Quản lý thông tin và CV tại một nơi</span></div>
+          <div><Icon name="spark" /><span><strong>Cơ hội phù hợp</strong>Khám phá các vị trí tuyển dụng phù hợp</span></div>
+          <div><Icon name="shield" /><span><strong>Tài khoản an toàn</strong>Đăng nhập bằng tài khoản đã đăng ký</span></div>
+        </div>
+      </section>
+      <section className="auth-form-wrap">
+        <div className="auth-form">
+          <h2 className="auth-heading">Chào mừng bạn trở lại</h2>
+          <p>Đăng nhập để tiếp tục hành trình nghề nghiệp.</p>
+          <div className="auth-tabs" role="tablist" aria-label="Xác thực tài khoản">
+            <button type="button" className="active" aria-selected="true">Đăng nhập</button>
+            <Link to="/register">Đăng ký</Link>
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
+
+          {registeredMessage && !serverError && (
+            <div className="alert-box alert-success" role="status">{registeredMessage}</div>
+          )}
+          {serverError && <div className="alert-box alert-error" role="alert">{serverError}</div>}
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="form-group">
+              <label htmlFor="login-email" className="form-label">
+                Email <span className="form-required">*</span>
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                className={`form-input ${fieldErrors.email ? 'input-error' : ''}`}
+                placeholder="name@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                aria-invalid={Boolean(fieldErrors.email)}
+              />
+              {fieldErrors.email && <p className="field-error">{fieldErrors.email}</p>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="login-password" className="form-label">
+                Mật khẩu <span className="form-required">*</span>
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                className={`form-input ${fieldErrors.password ? 'input-error' : ''}`}
+                placeholder="Nhập mật khẩu của bạn"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                aria-invalid={Boolean(fieldErrors.password)}
+              />
+              {fieldErrors.password && <p className="field-error">{fieldErrors.password}</p>}
+            </div>
+
+            <button type="submit" className="btn btn-primary full-button" disabled={submitting}>
+              {submitting ? 'Đang xác thực...' : 'Đăng nhập'}
+            </button>
+          </form>
+          <div className="auth-footer">
+            Chưa có tài khoản? <Link to="/register">Đăng ký tài khoản mới</Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+};
+
+export default Login;

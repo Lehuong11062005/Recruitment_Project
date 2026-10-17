@@ -1,10 +1,23 @@
-import { Navigate, Outlet } from 'react-router-dom'
-import { ROLE_HOME } from '../constants/roles'
-import { useAuth } from '../hooks/useAuth'
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { ROLE_HOME_PATH } from '../constants/roles';
 
-// Trang chỉ dành cho người chưa đăng nhập (login, register). Đã đăng nhập thì chuyển về trang chủ theo vai trò.
 export default function GuestRoute() {
-  const { isAuthenticated, user } = useAuth()
-  if (isAuthenticated) return <Navigate to={ROLE_HOME[user.role] ?? '/'} replace />
-  return <Outlet />
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: '48px', textAlign: 'center', color: '#64748B' }}>
+        Đang kiểm tra trạng thái đăng nhập...
+      </div>
+    );
+  }
+
+  if (isAuthenticated && user) {
+    const userRole = user.role === 'ADMIN' ? 'ADMIN' : user.user_type || user.role;
+    const targetPath = ROLE_HOME_PATH[userRole] || '/candidate';
+    return <Navigate to={targetPath} replace />;
+  }
+
+  return <Outlet />;
 }

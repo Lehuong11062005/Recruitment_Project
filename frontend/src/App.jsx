@@ -1,30 +1,29 @@
-import { Route, Routes } from 'react-router-dom'
-import { ROLES } from './constants/roles'
+import { Route, Routes } from 'react-router-dom';
+import { ROLES } from './constants/roles';
 
-import PrivateRoute from './components/PrivateRoute'
-import GuestRoute from './components/GuestRoute'
-import RootRedirect from './components/RootRedirect'
-import CandidateLayout from './components/layouts/CandidateLayout'
-import RecruiterLayout from './components/layouts/RecruiterLayout'
-import AdminLayout from './components/layouts/AdminLayout'
+import PrivateRoute from './components/PrivateRoute';
+import GuestRoute from './components/GuestRoute';
+import RootRedirect from './components/RootRedirect';
+import CandidateLayout from './components/layouts/CandidateLayout';
+import RecruiterLayout from './components/layouts/RecruiterLayout';
+import AdminLayout from './components/layouts/AdminLayout';
 
-import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
 
-import CandidateDashboard from './pages/candidate/CandidateDashboard'
-import JobList from './pages/candidate/JobList'
-import JobDetail from './pages/candidate/JobDetail'
-import MyApplications from './pages/candidate/MyApplications'
-import ApplicationDetail from './pages/candidate/ApplicationDetail'
-import Chat from './pages/candidate/Chat'
+import CandidateDashboard from './pages/candidate/CandidateDashboard';
+import JobList from './pages/candidate/JobList';
+import JobDetail from './pages/candidate/JobDetail';
+import MyApplications from './pages/candidate/MyApplications';
+import ApplicationDetail from './pages/candidate/ApplicationDetail';
+import Chat from './pages/candidate/Chat';
 
-import ManageJobs from './pages/recruiter/ManageJobs'
-import Dashboard from './pages/admin/Dashboard'
+import ManageJobs from './pages/recruiter/ManageJobs';
+import Dashboard from './pages/admin/Dashboard';
 
-import Forbidden from './pages/common/Forbidden'
-import NotFound from './pages/common/NotFound'
+import Forbidden from './pages/common/Forbidden';
+import NotFound from './pages/common/NotFound';
 
-// Routing phân quyền: Candidate, Recruiter, Admin
 export default function App() {
   return (
     <Routes>
@@ -36,7 +35,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
       </Route>
 
-      {/* Ứng viên */}
+      {/* Phân hệ Ứng viên (CANDIDATE) */}
       <Route element={<PrivateRoute allowedRoles={[ROLES.CANDIDATE]} />}>
         <Route path="/candidate" element={<CandidateLayout />}>
           <Route index element={<CandidateDashboard />} />
@@ -49,14 +48,15 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Nhà tuyển dụng */}
+      {/* Phân hệ Nhà tuyển dụng (RECRUITER) */}
       <Route element={<PrivateRoute allowedRoles={[ROLES.RECRUITER]} />}>
         <Route path="/recruiter" element={<RecruiterLayout />}>
           <Route index element={<ManageJobs />} />
+          <Route path="jobs" element={<ManageJobs />} />
         </Route>
       </Route>
 
-      {/* Quản trị viên */}
+      {/* Phân hệ Quản trị viên (ADMIN) */}
       <Route element={<PrivateRoute allowedRoles={[ROLES.ADMIN]} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
@@ -66,5 +66,5 @@ export default function App() {
       <Route path="/403" element={<Forbidden />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
-  )
+  );
 }

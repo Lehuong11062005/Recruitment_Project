@@ -1,11 +1,17 @@
-import { Link } from 'react-router-dom'
+// File: frontend/src/pages/common/Forbidden.jsx
+import { Link } from 'react-router-dom';
 
 export default function Forbidden() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-2">
-      <h1 className="text-5xl font-bold text-red-600">403</h1>
-      <p className="text-slate-600">Bạn không có quyền truy cập trang này.</p>
-      <Link to="/" className="mt-2 text-blue-600 hover:underline">Về trang chủ</Link>
-    </div>
-  )
+    <main className="error-page">
+      <section className="card error-card">
+        <span className="badge badge-red">403</span>
+        <h1>Không có quyền truy cập</h1>
+        <p>
+          Tài khoản của bạn không được cấp quyền sử dụng chức năng này.
+        </p>
+        <Link to="/" className="btn btn-primary">Quay về trang chính</Link>
+      </section>
+    </main>
+  );
 }

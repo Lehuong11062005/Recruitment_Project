@@ -1,26 +1,48 @@
-import { useParams } from 'react-router-dom'
-import PagePlaceholder from '../../components/PagePlaceholder'
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import Icon from '../../components/Icon';
 
-// UC-C8: Nhắn tin trực tiếp. REST: chatService.*, realtime: WebSocket
 export default function Chat() {
-  const { conversationId } = useParams()
+  const { conversationId } = useParams();
+  const [message, setMessage] = useState('');
 
   return (
-    <PagePlaceholder
-      code="UC-C8"
-      title="Tin nhắn"
-      description={
-        conversationId
-          ? `Đang mở hội thoại #${conversationId}`
-          : 'Trao đổi trực tiếp với nhà tuyển dụng qua WebSocket.'
-      }
-      todo={[
-        'Cột trái: danh sách hội thoại (last_message) + số tin chưa đọc',
-        'Khung chat: tải lịch sử (phân trang), gửi/nhận realtime',
-        'WebSocket: gửi JWT khi kết nối, tự kết nối lại, gửi lại tin chưa được xác nhận',
-        'Trạng thái tin nhắn: đang gửi, đã gửi, đã xem (is_read)',
-        'Giới hạn độ dài tin nhắn, hiển thị nội dung an toàn (không render HTML thô)',
-      ]}
-    />
-  )
+    <section className="card message-shell full-chat chat-page">
+      <div className="conversation">
+        <div className="conversation-head">
+          <span className="avatar avatar-blue"><Icon name="message" size={18} /></span>
+          <div>
+            <strong>{conversationId ? 'Cuộc hội thoại' : 'Tin nhắn'}</strong>
+            <span>{conversationId ? `Mã hội thoại: ${conversationId}` : 'Trao đổi với nhà tuyển dụng'}</span>
+          </div>
+        </div>
+        <div className="messages chat-placeholder">
+          <Icon name="message" size={28} />
+          {conversationId ? (
+            <>
+              <strong>Chưa có nội dung hội thoại</strong>
+              <p>Tin nhắn của cuộc hội thoại này sẽ hiển thị khi dữ liệu được tải từ hệ thống.</p>
+            </>
+          ) : (
+            <>
+              <strong>Chưa chọn cuộc hội thoại</strong>
+              <p>Cuộc hội thoại được mở từ thông tin ứng tuyển khi có dữ liệu tương ứng.</p>
+              <Link to="/candidate/applications" className="inline-link">Xem đơn ứng tuyển</Link>
+            </>
+          )}
+        </div>
+        <form className="composer" onSubmit={(event) => { event.preventDefault(); setMessage(''); }}>
+          <input
+            aria-label="Nội dung tin nhắn"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Nhập nội dung tin nhắn..."
+          />
+          <button className="btn btn-primary" type="submit" disabled={!message.trim()}>
+            <Icon name="send" size={16} /> Gửi
+          </button>
+        </form>
+      </div>
+    </section>
+  );
 }

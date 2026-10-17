@@ -1,21 +1,66 @@
-// Giải mã payload của JWT (không xác thực chữ ký, việc đó là của backend)
-export function decodeJwt(token) {
+/**
+ * Giải mã payload của JWT Token (không cần thư viện ngoài, hỗ trợ UTF-8)
+ * @param {string} token
+ * @returns {Object|null}
+ */
+export const decodeToken = (token) => {
+  if (!token || typeof token !== 'string') return null;
   try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const json = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + c.charCodeAt(0).toString(16).padStart(2, '0'))
-        .join(''),
-    )
-    return JSON.parse(json)
-  } catch {
-    return null
-  }
-}
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
 
-export function isTokenExpired(token) {
-  const payload = decodeJwt(token)
-  if (!payload?.exp) return false // token giả (mock) hoặc không có exp thì không coi là hết hạn
-  return payload.exp * 1000 < Date.now()
-}
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+
+    const jsonPayload = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+// Export thêm alias parseJwt phòng trường hợp các file cũ của Hùng đang gọi tên này
+export const parseJwt = decodeToken;
+
+/**
+ * Kiểm tra xem JWT Token đã hết hạn hay chưa (dựa trên claim exp)
+ * @param {string} token
+ * @returns {boolean}
+ */
+export const isTokenExpired = (token) => {
+  const payload = decodeToken(token);
+  if (!payload) return true;
+  if (!payload.exp) return false;
+
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  return payload.exp <= nowInSeconds;
+};
+
+/**
+ * Lấy thông tin user cơ bản từ JWT Token
+ * @param {string} token
+ * @returns {Object|null}
+ */
+export const getUserFromToken = (token) => {
+  const payload = decodeToken(token);
+  if (!payload) return null;
+  return {
+    id: payload.sub || payload.id,
+    email: payload.email,
+    role: payload.role,
+  };
+};
+
+export default {
+  decodeToken,
+  parseJwt,
+  isTokenExpired,
+  getUserFromToken,
+};
