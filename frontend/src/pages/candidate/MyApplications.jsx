@@ -20,64 +20,67 @@ const MOCK_APPLICATIONS = [
   },
 ];
 
+const statusTone = {
+  [PIPELINE_STATUS.APPLIED]: '',
+  [PIPELINE_STATUS.SCREENING]: 'warning',
+  [PIPELINE_STATUS.INTERVIEW]: '',
+  [PIPELINE_STATUS.HIRED]: 'success',
+  [PIPELINE_STATUS.REJECTED]: 'danger',
+};
+
 export default function MyApplications() {
   return (
-    <div>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#142B4A', marginBottom: '16px' }}>
-        Đơn ứng tuyển của tôi (UC-C7)
-      </h1>
-
-      <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #DCE5F0',
-          borderRadius: '12px',
-          overflow: 'hidden',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #DCE5F0', backgroundColor: '#F5F8FC' }}>
-              <th style={{ padding: '14px 16px', fontSize: '13px', color: '#142B4A' }}>Vị trí ứng tuyển</th>
-              <th style={{ padding: '14px 16px', fontSize: '13px', color: '#142B4A' }}>Doanh nghiệp</th>
-              <th style={{ padding: '14px 16px', fontSize: '13px', color: '#142B4A' }}>Điểm AI Match</th>
-              <th style={{ padding: '14px 16px', fontSize: '13px', color: '#142B4A' }}>Trạng thái (pipeline_status)</th>
-              <th style={{ padding: '14px 16px', fontSize: '13px', color: '#142B4A' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_APPLICATIONS.map((app) => (
-              <tr key={app.id} style={{ borderBottom: '1px solid #DCE5F0' }}>
-                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 600 }}>
-                  {app.job_title}
-                </td>
-                <td style={{ padding: '14px 16px', fontSize: '14px', color: '#64748B' }}>
-                  {app.company_name}
-                </td>
-                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 700, color: '#155EEF' }}>
-                  {app.ai_match_score}%
-                </td>
-                <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600 }}>
-                  <span
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '8px',
-                      border: '1px solid #DCE5F0',
-                      backgroundColor: '#F5F8FC',
-                      color: '#142B4A',
-                    }}
-                  >
-                    {PIPELINE_STATUS_LABELS[app.pipeline_status] || app.pipeline_status}
-                  </span>
-                </td>
-                <td style={{ padding: '14px 16px', fontSize: '14px' }}>
-                  <Link to={`/candidate/applications/${app.id}`}>Xem chi tiết</Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="content-stack">
+      <section className="card">
+        <div className="card-header">
+          <div>
+            <h2 className="section-title">Danh sách đơn ứng tuyển</h2>
+            <p className="muted small">Theo dõi trạng thái xử lý các hồ sơ đã gửi.</p>
+          </div>
+          <span className="badge badge-gray">{MOCK_APPLICATIONS.length} hồ sơ</span>
+        </div>
+        {MOCK_APPLICATIONS.length > 0 ? (
+          <div className="application-table-wrap">
+            <div className="demo-disclaimer">
+              <span>Danh sách hiện tại dùng các dữ liệu mẫu đã có trong frontend.</span>
+            </div>
+            <table className="application-table">
+              <thead>
+                <tr>
+                  <th>Vị trí ứng tuyển</th>
+                  <th>Doanh nghiệp</th>
+                  <th>AI Match</th>
+                  <th>Trạng thái</th>
+                  <th>Ngày nộp</th>
+                  <th aria-label="Thao tác" />
+                </tr>
+              </thead>
+              <tbody>
+                {MOCK_APPLICATIONS.map((application) => (
+                  <tr key={application.id}>
+                    <td>{application.job_title}</td>
+                    <td className="muted">{application.company_name}</td>
+                    <td><strong className="score-text">{application.ai_match_score}%</strong></td>
+                    <td>
+                      <span className={`status-badge ${statusTone[application.pipeline_status]}`}>
+                        {PIPELINE_STATUS_LABELS[application.pipeline_status] || application.pipeline_status}
+                      </span>
+                    </td>
+                    <td className="muted">{application.applied_at}</td>
+                    <td><Link className="inline-link" to={`/candidate/applications/${application.id}`}>Chi tiết</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <strong>Bạn chưa có đơn ứng tuyển</strong>
+            <p>Hãy khám phá các vị trí đang tuyển dụng để bắt đầu.</p>
+            <Link className="btn btn-primary" to="/candidate/jobs">Tìm việc làm</Link>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

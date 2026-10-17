@@ -1,46 +1,48 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import Icon from '../../components/Icon';
 
 export default function Chat() {
   const { conversationId } = useParams();
   const [message, setMessage] = useState('');
 
   return (
-    <div>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#142B4A', marginBottom: '16px' }}>
-        Tin nhắn trực tiếp với Nhà tuyển dụng (UC-C8)
-      </h1>
-      <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #DCE5F0',
-          borderRadius: '12px',
-          padding: '24px',
-        }}
-      >
-        <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '16px' }}>
-          {conversationId
-            ? `Đang mở cuộc hội thoại #${conversationId}`
-            : 'Chọn một cuộc hội thoại từ đơn ứng tuyển để trao đổi qua WebSocket.'}
-        </p>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Nhập nội dung tin nhắn..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-          <button
-            type="button"
-            className="btn-primary"
-            style={{ width: '140px', height: '42px' }}
-            onClick={() => setMessage('')}
-          >
-            Gửi tin
-          </button>
+    <section className="card message-shell full-chat chat-page">
+      <div className="conversation">
+        <div className="conversation-head">
+          <span className="avatar avatar-blue"><Icon name="message" size={18} /></span>
+          <div>
+            <strong>{conversationId ? 'Cuộc hội thoại' : 'Tin nhắn'}</strong>
+            <span>{conversationId ? `Mã hội thoại: ${conversationId}` : 'Trao đổi với nhà tuyển dụng'}</span>
+          </div>
         </div>
+        <div className="messages chat-placeholder">
+          <Icon name="message" size={28} />
+          {conversationId ? (
+            <>
+              <strong>Chưa có nội dung hội thoại</strong>
+              <p>Tin nhắn của cuộc hội thoại này sẽ hiển thị khi dữ liệu được tải từ hệ thống.</p>
+            </>
+          ) : (
+            <>
+              <strong>Chưa chọn cuộc hội thoại</strong>
+              <p>Cuộc hội thoại được mở từ thông tin ứng tuyển khi có dữ liệu tương ứng.</p>
+              <Link to="/candidate/applications" className="inline-link">Xem đơn ứng tuyển</Link>
+            </>
+          )}
+        </div>
+        <form className="composer" onSubmit={(event) => { event.preventDefault(); setMessage(''); }}>
+          <input
+            aria-label="Nội dung tin nhắn"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+            placeholder="Nhập nội dung tin nhắn..."
+          />
+          <button className="btn btn-primary" type="submit" disabled={!message.trim()}>
+            <Icon name="send" size={16} /> Gửi
+          </button>
+        </form>
       </div>
-    </div>
+    </section>
   );
 }

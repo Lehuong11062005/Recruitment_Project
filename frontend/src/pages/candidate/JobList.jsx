@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Icon from '../../components/Icon';
 
 const MOCK_JOBS = [
   {
@@ -23,82 +24,86 @@ const MOCK_JOBS = [
 export default function JobList() {
   const [keyword, setKeyword] = useState('');
   const [location, setLocation] = useState('');
+  const jobs = useMemo(() => MOCK_JOBS.filter((job) => (
+    `${job.title} ${job.company_name}`.toLowerCase().includes(keyword.trim().toLowerCase())
+    && job.location.toLowerCase().includes(location.trim().toLowerCase())
+  )), [keyword, location]);
 
   return (
-    <div>
-      <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#142B4A', marginBottom: '16px' }}>
-        Tìm kiếm việc làm (UC-C4)
-      </h1>
+    <div className="content-stack">
+      <section className="card filter-card">
+        <div className="filter-title">
+          <Icon name="filter" />
+          <strong>Bộ lọc việc làm</strong>
+          <span>Tìm theo vị trí, công ty hoặc địa điểm.</span>
+        </div>
+        <form className="job-search-grid" onSubmit={(event) => event.preventDefault()}>
+          <label className="search-input">
+            <Icon name="search" size={17} />
+            <input
+              type="search"
+              aria-label="Từ khóa việc làm"
+              placeholder="Tiêu đề hoặc công ty"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+            />
+          </label>
+          <label className="search-input">
+            <Icon name="map" size={17} />
+            <input
+              type="search"
+              aria-label="Địa điểm"
+              placeholder="Địa điểm"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+            />
+          </label>
+          <button className="btn btn-primary" type="button">
+            <Icon name="search" size={16} /> Tìm kiếm
+          </button>
+        </form>
+      </section>
 
-      <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #DCE5F0',
-          borderRadius: '12px',
-          padding: '20px',
-          marginBottom: '20px',
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr auto',
-          gap: '12px',
-        }}
-      >
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Nhập từ khóa công việc, kỹ năng (VD: Python, ReactJS)..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
-        <input
-          type="text"
-          className="form-input"
-          placeholder="Địa điểm (VD: Hà Nội)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
-        <button type="button" className="btn-primary" style={{ padding: '0 24px', height: '42px' }}>
-          Tìm kiếm
-        </button>
+      <div className="result-toolbar">
+        <strong>{jobs.length} vị trí phù hợp</strong>
+        <span className="muted">Kết quả khớp với bộ lọc</span>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {MOCK_JOBS.map((job) => (
-          <div
-            key={job.id}
-            style={{
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #DCE5F0',
-              borderRadius: '12px',
-              padding: '20px',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#142B4A' }}>{job.title}</h3>
-              <p style={{ fontSize: '14px', color: '#64748B', marginTop: '4px' }}>
-                {job.company_name} • {job.location} • Cấp bậc: {job.level}
-              </p>
-              <p style={{ fontSize: '14px', fontWeight: 600, color: '#155EEF', marginTop: '6px' }}>
-                Mức lương: {job.salary}
-              </p>
+      <div className="job-catalog">
+        <div className="demo-disclaimer">
+          <Icon name="warning" size={15} />
+          <span>Danh sách hiện tại dùng các dữ liệu mẫu đã có trong frontend.</span>
+        </div>
+        {jobs.map((job) => (
+          <article className="card catalog-card" key={job.id}>
+            <div className="company-logo company-logo-large logo-blue">
+              {job.company_name.slice(0, 2).toUpperCase()}
             </div>
-            <Link
-              to={`/candidate/jobs/${job.id}`}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: '#155EEF',
-                color: '#FFFFFF',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-              }}
-            >
-              Xem chi tiết & Ứng tuyển
-            </Link>
-          </div>
+            <div className="catalog-main">
+              <div className="job-title-line">
+                <div>
+                  <strong>{job.title}</strong>
+                  <span>{job.company_name}</span>
+                </div>
+              </div>
+              <div className="meta-row">
+                <span><Icon name="map" size={15} />{job.location}</span>
+                <span><Icon name="briefcase" size={15} />{job.level}</span>
+                <span><Icon name="wallet" size={15} />{job.salary}</span>
+              </div>
+            </div>
+            <div className="catalog-actions">
+              <Link className="btn btn-primary" to={`/candidate/jobs/${job.id}`}>Xem chi tiết</Link>
+            </div>
+          </article>
         ))}
+        {jobs.length === 0 && (
+          <section className="card empty-state">
+            <Icon name="search" size={26} />
+            <strong>Không tìm thấy việc làm phù hợp</strong>
+            <p>Thử thay đổi từ khóa hoặc địa điểm tìm kiếm.</p>
+          </section>
+        )}
       </div>
     </div>
   );

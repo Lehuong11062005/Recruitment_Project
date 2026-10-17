@@ -1,9 +1,55 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import Icon from '../Icon';
 
-export default function DashboardLayout({ roleLabel, navItems = [] }) {
+const PAGE_COPY = {
+  '/candidate': ['Tổng quan ứng viên', 'Theo dõi hồ sơ và cơ hội việc làm phù hợp.'],
+  '/candidate/jobs': ['Tìm kiếm việc làm', 'Khám phá các cơ hội đang tuyển dụng.'],
+  '/candidate/applications': ['Đơn ứng tuyển của tôi', 'Theo dõi trạng thái hồ sơ đã nộp.'],
+  '/candidate/messages': ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.'],
+  '/recruiter': ['Quản lý tin tuyển dụng', 'Theo dõi các vị trí tuyển dụng của doanh nghiệp.'],
+  '/recruiter/jobs': ['Quản lý tin tuyển dụng', 'Theo dõi các vị trí tuyển dụng của doanh nghiệp.'],
+  '/admin': ['Dashboard quản trị', 'Quản lý và giám sát nền tảng.'],
+};
+
+const ROLE_NAV = {
+  candidate: [
+    { to: '/candidate', label: 'Tổng quan', icon: 'grid', end: true },
+    { to: '/candidate/jobs', label: 'Tìm việc làm', icon: 'search' },
+    { to: '/candidate/applications', label: 'Đơn ứng tuyển', icon: 'briefcase' },
+    { to: '/candidate/messages', label: 'Tin nhắn', icon: 'message' },
+  ],
+  recruiter: [{ to: '/recruiter/jobs', label: 'Tin tuyển dụng', icon: 'briefcase' }],
+  admin: [{ to: '/admin', label: 'Trung tâm quản trị', icon: 'shield', end: true }],
+};
+
+const ROLE_NAMES = {
+  candidate: 'ỨNG VIÊN',
+  recruiter: 'NHÀ TUYỂN DỤNG',
+  admin: 'QUẢN TRỊ VIÊN',
+};
+
+const initials = (name = '') => name
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(-2)
+  .map((part) => part[0])
+  .join('')
+  .toUpperCase();
+
+export default function DashboardLayout({ roleLabel, role = 'candidate' }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [title, subtitle] = PAGE_COPY[pathname] || (
+    pathname.startsWith('/candidate/jobs/')
+      ? ['Chi tiết việc làm', 'Thông tin tuyển dụng và ứng tuyển.']
+      : pathname.startsWith('/candidate/applications/')
+        ? ['Chi tiết đơn ứng tuyển', 'Theo dõi tiến trình xử lý hồ sơ.']
+        : ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.']
+  );
+  const navItems = ROLE_NAV[role];
+  const displayName = user?.full_name || user?.email || roleLabel;
 
   const handleLogout = () => {
     logout();
@@ -11,82 +57,57 @@ export default function DashboardLayout({ roleLabel, navItems = [] }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', backgroundColor: '#F5F8FC' }}>
-      {/* Sidebar màu Navy #142B4A */}
-      <aside
-        style={{
-          width: '250px',
-          backgroundColor: '#142B4A',
-          color: '#FFFFFF',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          padding: '24px 16px',
-          flexShrink: 0,
-        }}
-      >
-        <div>
-          <div style={{ padding: '0 12px 20px', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>
-              Smart Recruitment
-            </div>
-            <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
-              {roleLabel}
-            </div>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <NavLink to="/" className="brand">
+          <span className="brand-mark"><Icon name="spark" size={20} /></span>
+          <span>CareerAI</span>
+        </NavLink>
+        <div className="workspace-label">{ROLE_NAMES[role]}</div>
+        <nav aria-label="Điều hướng chính">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => (isActive ? 'active' : '')}
+              title={item.label}
+            >
+              <Icon name={item.icon} size={19} />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <div className="sidebar-account">
+          <div className="sidebar-user">
+            <span className="avatar avatar-blue">{initials(displayName) || 'U'}</span>
+            <span className="sidebar-user-copy">
+              <strong>{displayName}</strong>
+              <small>{user?.email || roleLabel}</small>
+            </span>
           </div>
-
-          <nav style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                style={({ isActive }) => ({
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#FFFFFF',
-                  textDecoration: 'none',
-                  backgroundColor: isActive ? '#155EEF' : 'transparent',
-                })}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.12)', paddingTop: '16px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', padding: '0 8px' }}>
-            {user?.full_name || user?.email}
-          </div>
-          <div style={{ fontSize: '12px', color: '#94A3B8', padding: '2px 8px 12px' }}>
-            {user?.email}
-          </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            style={{
-              width: '100%',
-              height: '38px',
-              backgroundColor: 'transparent',
-              color: '#FFFFFF',
-              border: '1px solid rgba(255,255,255,0.25)',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Đăng xuất
+          <button type="button" className="logout-button" onClick={handleLogout} title="Đăng xuất">
+            <Icon name="logout" size={18} />
+            <span>Đăng xuất</span>
           </button>
         </div>
       </aside>
 
-      {/* Khu vực nội dung chính */}
-      <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
-        <Outlet />
+      <main className="main-area">
+        <header className="topbar">
+          <div className="page-heading">
+            <h1 className="page-title">{title}</h1>
+            <span>{subtitle}</span>
+          </div>
+          <div className="top-actions">
+            <span className="topbar-avatar avatar avatar-blue">{initials(displayName) || 'U'}</span>
+            <span className="topbar-identity">
+              <strong>{displayName}</strong>
+              <small>{roleLabel}</small>
+            </span>
+          </div>
+        </header>
+        <div className="page-content"><Outlet /></div>
       </main>
     </div>
   );
