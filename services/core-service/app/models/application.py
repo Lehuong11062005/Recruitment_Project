@@ -1,8 +1,9 @@
-
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from beanie import Document, PydanticObjectId
 from pydantic import BaseModel, Field
+from pymongo import ASCENDING, IndexModel
+
 
 class StatusHistory(BaseModel):
     status: str
@@ -34,6 +35,8 @@ class Application(Document):
     class Settings:
         name = "applications"
         indexes = [
-            [("job_id", 1), ("candidate_id", 1)],  # 1 ứng viên apply 1 job duy nhất 1 lần
+            # unique=True thật sự: 1 ứng viên chỉ nộp 1 job 1 lần (bản cũ thiếu unique)
+            IndexModel([("job_id", ASCENDING), ("candidate_id", ASCENDING)], unique=True),
             [("candidate_id", 1)],
+            [("job_id", 1), ("ai_match_score", -1)],   # phục vụ xếp hạng ứng viên theo điểm (Tuần 9)
         ]
