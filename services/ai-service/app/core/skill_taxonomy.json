@@ -1,0 +1,746 @@
+[
+  {
+    "skill": "Python",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Java",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "JavaScript",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": [
+      "JS",
+      "Javascript"
+    ]
+  },
+  {
+    "skill": "TypeScript",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "C#",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "C++",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "C",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Go",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "PHP",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Ruby",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Kotlin",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Swift",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Dart",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Rust",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Scala",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "R",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "Objective-C",
+    "group": "Ngôn ngữ lập trình",
+    "aliases": []
+  },
+  {
+    "skill": "HTML",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "CSS",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "React",
+    "group": "Frontend",
+    "aliases": [
+      "ReactJS",
+      "React.js"
+    ]
+  },
+  {
+    "skill": "Angular",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Vue.js",
+    "group": "Frontend",
+    "aliases": [
+      "VueJS",
+      "Vue"
+    ]
+  },
+  {
+    "skill": "Next.js",
+    "group": "Frontend",
+    "aliases": [
+      "NextJS"
+    ]
+  },
+  {
+    "skill": "Nuxt.js",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Redux",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Tailwind CSS",
+    "group": "Frontend",
+    "aliases": [
+      "Tailwind"
+    ]
+  },
+  {
+    "skill": "Bootstrap",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "jQuery",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "SASS/SCSS",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Webpack",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Flutter",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "React Native",
+    "group": "Frontend",
+    "aliases": []
+  },
+  {
+    "skill": "Node.js",
+    "group": "Backend và framework",
+    "aliases": [
+      "NodeJS",
+      "Nodejs"
+    ]
+  },
+  {
+    "skill": "Express.js",
+    "group": "Backend và framework",
+    "aliases": [
+      "Express",
+      "ExpressJS"
+    ]
+  },
+  {
+    "skill": "NestJS",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "Spring Boot",
+    "group": "Backend và framework",
+    "aliases": [
+      "Spring"
+    ]
+  },
+  {
+    "skill": "Django",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "Flask",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "FastAPI",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": ".NET Core",
+    "group": "Backend và framework",
+    "aliases": [
+      ".NET",
+      "ASP.NET Core"
+    ]
+  },
+  {
+    "skill": "ASP.NET",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "Laravel",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "Ruby on Rails",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "GraphQL",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "REST API",
+    "group": "Backend và framework",
+    "aliases": [
+      "RESTful API",
+      "RESTful"
+    ]
+  },
+  {
+    "skill": "gRPC",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "Microservices",
+    "group": "Backend và framework",
+    "aliases": []
+  },
+  {
+    "skill": "SQL",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "MySQL",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "PostgreSQL",
+    "group": "Cơ sở dữ liệu",
+    "aliases": [
+      "Postgres"
+    ]
+  },
+  {
+    "skill": "SQL Server",
+    "group": "Cơ sở dữ liệu",
+    "aliases": [
+      "MS SQL Server",
+      "MSSQL"
+    ]
+  },
+  {
+    "skill": "Oracle",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "MongoDB",
+    "group": "Cơ sở dữ liệu",
+    "aliases": [
+      "Mongo"
+    ]
+  },
+  {
+    "skill": "Redis",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "Elasticsearch",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "Cassandra",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "SQLite",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "Firebase",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "DynamoDB",
+    "group": "Cơ sở dữ liệu",
+    "aliases": []
+  },
+  {
+    "skill": "AWS",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Azure",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Google Cloud",
+    "group": "Cloud và DevOps",
+    "aliases": [
+      "GCP",
+      "Google Cloud Platform"
+    ]
+  },
+  {
+    "skill": "Docker",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Kubernetes",
+    "group": "Cloud và DevOps",
+    "aliases": [
+      "K8s"
+    ]
+  },
+  {
+    "skill": "Jenkins",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "GitLab CI/CD",
+    "group": "Cloud và DevOps",
+    "aliases": [
+      "GitLab CI"
+    ]
+  },
+  {
+    "skill": "GitHub Actions",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Terraform",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Ansible",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Linux",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Nginx",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Git",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Prometheus",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Grafana",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "ELK Stack",
+    "group": "Cloud và DevOps",
+    "aliases": []
+  },
+  {
+    "skill": "Machine Learning",
+    "group": "AI, Data, ML",
+    "aliases": [
+      "ML",
+      "học máy"
+    ]
+  },
+  {
+    "skill": "Deep Learning",
+    "group": "AI, Data, ML",
+    "aliases": [
+      "học sâu"
+    ]
+  },
+  {
+    "skill": "NLP",
+    "group": "AI, Data, ML",
+    "aliases": [
+      "Natural Language Processing",
+      "xử lý ngôn ngữ tự nhiên"
+    ]
+  },
+  {
+    "skill": "Computer Vision",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "TensorFlow",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "PyTorch",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Scikit-learn",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Pandas",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "NumPy",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "OpenCV",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Hugging Face",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "LangChain",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "LLM",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Spark",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Hadoop",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Kafka",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Airflow",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "ETL",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Power BI",
+    "group": "AI, Data, ML",
+    "aliases": [
+      "PowerBI"
+    ]
+  },
+  {
+    "skill": "Tableau",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Excel",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Data Warehouse",
+    "group": "AI, Data, ML",
+    "aliases": []
+  },
+  {
+    "skill": "Manual Testing",
+    "group": "Kiểm thử và QA",
+    "aliases": [
+      "kiểm thử thủ công"
+    ]
+  },
+  {
+    "skill": "Automation Testing",
+    "group": "Kiểm thử và QA",
+    "aliases": [
+      "Test Automation",
+      "kiểm thử tự động"
+    ]
+  },
+  {
+    "skill": "Selenium",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "Cypress",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "Postman",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "JMeter",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "Appium",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "JUnit",
+    "group": "Kiểm thử và QA",
+    "aliases": []
+  },
+  {
+    "skill": "Test Case",
+    "group": "Kiểm thử và QA",
+    "aliases": [
+      "Testcase"
+    ]
+  },
+  {
+    "skill": "Agile",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Scrum",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Kanban",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Jira",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Confluence",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Trello",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Waterfall",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "UML",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "SDLC",
+    "group": "Quản lý dự án và quy trình",
+    "aliases": []
+  },
+  {
+    "skill": "Cybersecurity",
+    "group": "Bảo mật và mạng",
+    "aliases": [
+      "An toàn thông tin",
+      "Security"
+    ]
+  },
+  {
+    "skill": "Penetration Testing",
+    "group": "Bảo mật và mạng",
+    "aliases": [
+      "Pentest"
+    ]
+  },
+  {
+    "skill": "OWASP",
+    "group": "Bảo mật và mạng",
+    "aliases": []
+  },
+  {
+    "skill": "Network Security",
+    "group": "Bảo mật và mạng",
+    "aliases": []
+  },
+  {
+    "skill": "Cisco",
+    "group": "Bảo mật và mạng",
+    "aliases": []
+  },
+  {
+    "skill": "TCP/IP",
+    "group": "Bảo mật và mạng",
+    "aliases": []
+  },
+  {
+    "skill": "SEO",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": [
+      "Search Engine Optimization"
+    ]
+  },
+  {
+    "skill": "SEM",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Google Ads",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Facebook Ads",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": [
+      "Meta Ads"
+    ]
+  },
+  {
+    "skill": "Google Analytics",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": [
+      "GA4"
+    ]
+  },
+  {
+    "skill": "Content Marketing",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Email Marketing",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "CRM",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Salesforce",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "HubSpot",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Photoshop",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Illustrator",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Figma",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  },
+  {
+    "skill": "Canva",
+    "group": "Marketing, Sales, Thiết kế",
+    "aliases": []
+  }
+]
