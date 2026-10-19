@@ -5,7 +5,8 @@ Luồng: kiểm tra job -> chống nộp trùng -> lấy/lưu file CV PDF -> g�
 với pipeline_status = "APPLIED". AI lỗi thì vẫn lưu đơn (điểm = None) để ứng viên không mất đơn.
 """
 import asyncio
-import json
+import logging
+import math
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -24,41 +25,101 @@ from app.schemas.application import AIAnalysisResponse, ApplicationResponse, Ski
 from app.services.cv_service import _url_to_path, read_limited
 from app.services.cv_utils import CVError, match_skill_names, validate_pdf
 
-AI_MATCH_PATH = "/api/v1/ai/match-cv"   # API AI Service (Hưởng) cần cung cấp - xem hợp đồng trong hướng dẫn
+AI_PARSE_PATH = "/api/v1/ai/parse-cv"
+AI_MATCH_PATH = "/api/v1/ai/match"
+logger = logging.getLogger(__name__)
 
 
 # ---------- hàm thuần, dễ test ----------
 def _clamp_score(value: Any) -> Optional[float]:
     try:
-        return round(max(0.0, min(100.0, float(value))), 2)
-    except (TypeError, ValueError):
+        score = float(value)
+        if not math.isfinite(score):
+            return None
+        return round(max(0.0, min(100.0, score)), 2)
+    except (TypeError, ValueError, OverflowError):
         return None
 
 
-def _names(items: Any) -> List[str]:
-    out: List[str] = []
-    for it in items or []:
-        if isinstance(it, str) and it.strip():
-            out.append(it.strip())
-        elif isinstance(it, dict) and isinstance(it.get("name"), str) and it["name"].strip():
-            out.append(it["name"].strip())
-    return out
+def _ai_url(path: str) -> str:
+    return settings.AI_URL.rstrip("/") + path
 
 
-async def _call_ai_match(filename: str, data: bytes, job: JobPosting,
-                         required_names: List[str]) -> Optional[Dict[str, Any]]:
-    """Trả về JSON AI hoặc None (chưa cấu hình / lỗi mạng / AI trả sai)."""
-    if not settings.AI_URL:
-        return None
-    url = settings.AI_URL.rstrip("/") + AI_MATCH_PATH
-    form = {"jd_text": f"{job.title}\n{job.description}", "required_skills": json.dumps(required_names)}
+async def _call_ai_parse(filename: str, data: bytes) -> Optional[Dict[str, Any]]:
+    """Parse a PDF with the AI Service; return None for unavailable or invalid responses."""
+    url = _ai_url(AI_PARSE_PATH)
     try:
         async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
-            resp = await client.post(url, data=form, files={"file": (filename, data, "application/pdf")})
+            resp = await client.post(
+                url,
+                files={"file": (filename, data, "application/pdf")},
+            )
         resp.raise_for_status()
         payload = resp.json()
-        return payload if isinstance(payload, dict) else None
-    except Exception:
+        if not isinstance(payload, dict):
+            raise ValueError("response must be a JSON object")
+        parsed_text = payload.get("parsed_text")
+        skills = payload.get("skills")
+        embedding = payload.get("embedding_vector")
+        if (
+            not isinstance(parsed_text, str)
+            or not isinstance(skills, list)
+            or any(not isinstance(skill, str) for skill in skills)
+            or not isinstance(embedding, list)
+            or any(not isinstance(value, (int, float)) or not math.isfinite(value) for value in embedding)
+        ):
+            raise ValueError("response does not match ParseCVResponse")
+        return payload
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("AI parse request failed (%s): %s", url, exc)
+        return None
+
+
+async def _call_ai_match(
+    parsed_text: str,
+    candidate_skills: List[str],
+    job: JobPosting,
+    required_names: List[str],
+) -> Optional[Dict[str, Any]]:
+    """Match parsed CV data against a job using the AI Service JSON contract."""
+    url = _ai_url(AI_MATCH_PATH)
+    body = {
+        "cv_text": parsed_text,
+        "jd_text": f"{job.title}\n{job.description}",
+        "candidate_skills": candidate_skills,
+        "required_skills": required_names,
+        "candidate_experience_years": 0.0,
+        "job_experience_required": float(job.experience_required or 0),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
+            resp = await client.post(url, json=body)
+        resp.raise_for_status()
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            raise ValueError("response must be a JSON object")
+        analysis = payload.get("ai_analysis")
+        embedding = payload.get("embedding_vector")
+        if (
+            _clamp_score(payload.get("ai_match_score")) is None
+            or not isinstance(payload.get("matching_version"), str)
+            or not isinstance(embedding, list)
+            or any(not isinstance(value, (int, float)) or not math.isfinite(value) for value in embedding)
+            or not isinstance(analysis, dict)
+            or not isinstance(analysis.get("matched"), list)
+            or not isinstance(analysis.get("missing"), list)
+            or any(not isinstance(skill, str) for skill in analysis["matched"] + analysis["missing"])
+            or not isinstance(analysis.get("score_breakdown"), dict)
+            or any(
+                not isinstance(value, (int, float)) or not math.isfinite(value)
+                for value in analysis["score_breakdown"].values()
+            )
+            or not isinstance(analysis.get("recommendation"), str)
+        ):
+            raise ValueError("response does not match MatchingResponse")
+        return payload
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("AI match request failed (%s): %s", url, exc)
         return None
 
 
@@ -111,7 +172,12 @@ def _to_response(app: Application, ai_status: str, id_to_name: Dict[Any, str]) -
 
 
 # ---------- nghiệp vụ chính ----------
-async def apply_job(user: User, job_id: PydanticObjectId, file: Optional[UploadFile]) -> ApplicationResponse:
+async def apply_job(
+    user: User,
+    job_id: PydanticObjectId,
+    file: Optional[UploadFile],
+    submitted_required_names: Optional[List[str]] = None,
+) -> ApplicationResponse:
     job = await JobPosting.get(job_id)
     if job is None or job.deleted_at is not None:
         raise CVError(404, "Không tìm thấy tin tuyển dụng")
@@ -120,46 +186,60 @@ async def apply_job(user: User, job_id: PydanticObjectId, file: Optional[UploadF
     if await Application.find_one(Application.job_id == job_id, Application.candidate_id == user.id):
         raise CVError(409, "Bạn đã ứng tuyển vị trí này rồi")
 
-    data, filename, path, cv_url = await _resolve_cv(user, file)
-
     # Từ điển kỹ năng: đổi tên kỹ năng AI trả về <-> _id trong skills_taxonomy
     skills = await SkillsTaxonomy.find_all().to_list()
     taxonomy = [{"id": s.id, "name": s.name, "aliases": s.aliases} for s in skills]
     id_to_name = {s.id: s.name for s in skills}
     required_ids = list(dict.fromkeys(job.required_skills))
     required_names = [id_to_name[i] for i in required_ids if i in id_to_name]
+    if submitted_required_names is not None and {
+        name.casefold() for name in submitted_required_names
+    } != {name.casefold() for name in required_names}:
+        raise CVError(422, "required_skills không khớp với kỹ năng bắt buộc của tin tuyển dụng")
 
-    ai = await _call_ai_match(filename, data, job, required_names)
+    data, filename, path, cv_url = await _resolve_cv(user, file)
+    parsed_text = None
+    embedding = None
+    score = None
+    analysis = None
+    ai_status = "FAILED"
+    version = "v1.0"
+    parsed = await _call_ai_parse(filename, data)
+    if parsed is not None:
+        parsed_text = parsed["parsed_text"]
+        embedding = [float(value) for value in parsed["embedding_vector"]]
+        ai = await _call_ai_match(parsed_text, parsed["skills"], job, required_names)
+        if ai is not None:
+            score = _clamp_score(ai["ai_match_score"])
+            version = ai["matching_version"]
+            match_embedding = ai["embedding_vector"]
+            if match_embedding:
+                embedding = [float(value) for value in match_embedding]
 
-    score = parsed_text = embedding = analysis = None
-    ai_status = "SKIPPED" if not settings.AI_URL else "FAILED"
-    version = None
-    if ai is not None:
-        score = _clamp_score(ai.get("match_score"))
-        if score is not None:
-            ai_status = "DONE"
-            parsed_text = ai.get("parsed_text") if isinstance(ai.get("parsed_text"), str) else None
-            emb = ai.get("embedding")
-            embedding = [float(x) for x in emb] if isinstance(emb, list) else None
-            version = ai.get("model_version") or "v1.0"
-            matched_ids = [m["id"] for m in match_skill_names(_names(ai.get("matched_skills")), taxonomy)]
-            missing_ids = [m["id"] for m in match_skill_names(_names(ai.get("missing_skills")), taxonomy)]
-            if not missing_ids:   # AI không trả missing -> tự suy ra từ JD
-                missing_ids = [i for i in required_ids if i not in set(matched_ids)]
-            breakdown = ai.get("score_breakdown")
+            ai_analysis = ai["ai_analysis"]
+            matched_ids = [
+                item["id"] for item in match_skill_names(ai_analysis["matched"], taxonomy)
+            ]
+            missing_ids = [
+                item["id"] for item in match_skill_names(ai_analysis["missing"], taxonomy)
+            ]
             analysis = AIAnalysis(
-                matched=matched_ids, missing=missing_ids,
-                score_breakdown={k: float(v) for k, v in breakdown.items()
-                                 if isinstance(v, (int, float))} if isinstance(breakdown, dict) else None,
-                recommendation=ai.get("recommendation") if isinstance(ai.get("recommendation"), str) else None,
+                matched=matched_ids,
+                missing=missing_ids,
+                score_breakdown={
+                    key: float(value)
+                    for key, value in ai_analysis["score_breakdown"].items()
+                },
+                recommendation=ai_analysis["recommendation"],
             )
+            ai_status = "DONE"
 
     app = Application(
         job_id=job_id, candidate_id=user.id, cv_url=cv_url,
         parsed_text=parsed_text, embedding_vector=embedding,
         pipeline_status="APPLIED",
         status_history=[StatusHistory(status="APPLIED", changed_by=user.id)],
-        ai_match_score=score, matching_version=version or "v1.0", ai_analysis=analysis,
+        ai_match_score=score, matching_version=version, ai_analysis=analysis,
     )
     try:
         await app.insert()

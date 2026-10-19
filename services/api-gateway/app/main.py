@@ -13,10 +13,9 @@ app.add_middleware(
     allow_methods=["*"] 
 )
 
-app.include_router(core_router)
-app.include_router(ai_router)
-
 @app.get("/")
 def root():
     return {"messager": "Api-gateway is running"}
 
+app.include_router(ai_router)
+app.include_router(core_router)

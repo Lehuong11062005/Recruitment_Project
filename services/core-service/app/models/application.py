@@ -11,8 +11,8 @@ class StatusHistory(BaseModel):
     time: datetime = Field(default_factory=datetime.utcnow)
 
 class AIAnalysis(BaseModel):
-    matched: List[PydanticObjectId] = []
-    missing: List[PydanticObjectId] = []
+    matched: List[PydanticObjectId] = Field(default_factory=list)
+    missing: List[PydanticObjectId] = Field(default_factory=list)
     score_breakdown: Optional[Dict[str, float]] = None
     recommendation: Optional[str] = None
 
@@ -23,7 +23,7 @@ class Application(Document):
     parsed_text: Optional[str] = None     # Văn bản thô bóc tách từ PDF
     embedding_vector: Optional[List[float]] = None
     pipeline_status: str = "APPLIED"      # "APPLIED", "SCREENING", "INTERVIEW", "REJECTED", "HIRED"
-    status_history: List[StatusHistory] = []
+    status_history: List[StatusHistory] = Field(default_factory=list)
     interview_schedule: Optional[Dict[str, Any]] = None
     recruiter_note: Optional[str] = None
     ai_match_score: Optional[float] = None
@@ -35,8 +35,11 @@ class Application(Document):
     class Settings:
         name = "applications"
         indexes = [
-            # unique=True thật sự: 1 ứng viên chỉ nộp 1 job 1 lần (bản cũ thiếu unique)
-            IndexModel([("job_id", ASCENDING), ("candidate_id", ASCENDING)], unique=True),
+            IndexModel(
+                [("job_id", ASCENDING), ("candidate_id", ASCENDING)],
+                unique=True,
+                name="unique_job_candidate_application",
+            ),
             [("candidate_id", 1)],
             [("job_id", 1), ("ai_match_score", -1)],   # phục vụ xếp hạng ứng viên theo điểm (Tuần 9)
         ]

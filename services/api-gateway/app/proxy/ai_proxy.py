@@ -5,9 +5,9 @@ from app.config import settings
 
 router = APIRouter()
 
-@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
+@router.api_route("/api/v1/ai/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"], include_in_schema=False)
 async def proxy_ai(path: str, request: Request):
-    url = f"{settings.AI_URL.rstrip('/')}/{path.lstrip('/')}"
+    url = f"{settings.AI_URL.rstrip('/')}/api/v1/ai/{path.lstrip('/')}"
     # 1. BẮT BUỘC: await để lấy dữ liệu bytes thật
     body = await request.body()
 

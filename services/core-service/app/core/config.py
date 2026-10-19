@@ -15,8 +15,8 @@ class Settings:
     # Thư mục lưu file (tương đối so với thư mục core-service); đã nằm trong .gitignore
     UPLOAD_DIR: Path = (Path(__file__).resolve().parents[2] / os.getenv("UPLOAD_DIR", "uploads")).resolve()
     CV_MAX_SIZE_MB: int = int(os.getenv("CV_MAX_SIZE_MB", "5"))
-    # Địa chỉ AI Service, ví dụ http://localhost:8002. Để trống = bỏ qua bước AI phân tích CV
-    AI_URL: str = os.getenv("AI_URL", "")
+    # AI Service thực tế (port 8002); blank environment values use this default too.
+    AI_URL: str = os.getenv("AI_URL") or "http://localhost:8002"
     AI_TIMEOUT_SECONDS: float = float(os.getenv("AI_TIMEOUT_SECONDS", "30"))
 
 
