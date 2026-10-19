@@ -10,9 +10,31 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[SkillResponse],
-            summary="Danh sách kỹ năng chuẩn để ứng viên chọn khi cập nhật hồ sơ")
-async def list_skills(q: Optional[str] = Query(default=None, description="Lọc theo tên"),
-                      limit: int = Query(default=50, ge=1, le=200)):
-    query = SkillsTaxonomy.find({"name": {"$regex": re.escape(q), "$options": "i"}}) if q else SkillsTaxonomy.find()
-    skills = await query.limit(limit).to_list()
+            summary="Danh sách kỹ năng chuẩn (skills_taxonomy) cho bộ chọn tag ở Frontend")
+async def list_skills(
+    q: Optional[str] = Query(default=None, description="Lọc theo tên (không phân biệt hoa thường)"),
+    category: Optional[str] = Query(default=None, description="Lọc theo nhóm: Frontend, Backend, AI..."),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    skip: Optional[int] = Query(default=None, ge=0, deprecated=True),
+):
+    flt: dict = {}
+    if q:
+        flt["name"] = {"$regex": re.escape(q), "$options": "i"}
+    if category:
+        flt["category"] = category
+    offset = skip if skip is not None else (page - 1) * limit
+    skills = await SkillsTaxonomy.find(flt).sort("name").skip(offset).limit(limit).to_list()
     return [SkillResponse(id=s.id, name=s.name, category=s.category) for s in skills]
+
+
+@router.get("/categories", response_model=List[str], summary="Các nhóm kỹ năng để làm tab/bộ lọc")
+async def list_categories():
+    categories = await SkillsTaxonomy.get_motor_collection().aggregate(
+        [
+            {"$match": {"category": {"$nin": [None, ""]}}},
+            {"$group": {"_id": "$category"}},
+            {"$sort": {"_id": 1}},
+        ]
+    ).to_list(length=None)
+    return [item["_id"] for item in categories]
