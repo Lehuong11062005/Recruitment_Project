@@ -12,8 +12,8 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
 import CandidateDashboard from './pages/candidate/CandidateDashboard';
-import LiveJobList from './pages/candidate/LiveJobList';
-import LiveJobDetail from './pages/candidate/LiveJobDetail';
+import JobList from './pages/candidate/JobList';
+import JobDetail from './pages/candidate/JobDetail';
 import MyApplications from './pages/candidate/MyApplications';
 import ApplicationDetail from './pages/candidate/ApplicationDetail';
 import Chat from './pages/candidate/Chat';
@@ -39,9 +39,9 @@ export default function App() {
       {/* Phân hệ Ứng viên (CANDIDATE) */}
       <Route element={<PrivateRoute allowedRoles={[ROLES.CANDIDATE]} />}>
         <Route path="/candidate" element={<CandidateLayout />}>
-          <Route path="jobs/:jobId" element={<LiveJobDetail />} />
-          <Route path="jobs" element={<LiveJobList />} />
           <Route index element={<CandidateDashboard />} />
+          <Route path="jobs" element={<JobList />} /> {/* UC-C4 */}
+          <Route path="jobs/:jobId" element={<JobDetail />} /> {/* UC-C5 */}
           <Route path="applications" element={<MyApplications />} /> {/* UC-C7 */}
           <Route path="applications/:applicationId" element={<ApplicationDetail />} />
           <Route path="messages" element={<Chat />} /> {/* UC-C8 */}

@@ -1,11 +1,28 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
+import { jobService } from '../../services/jobService';
 
 export default function JobDetail() {
   const { jobId } = useParams();
   const [selectedFile, setSelectedFile] = useState(null);
   const [statusMsg, setStatusMsg] = useState('');
+  const [job, setJob] = useState(null);
+  const [jobError, setJobError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    jobService.getJobDetail(jobId)
+      .then((response) => {
+        if (active) setJob(response?.data || response);
+      })
+      .catch((requestError) => {
+        if (active) setJobError(requestError.message || 'Không thể tải thông tin tin tuyển dụng.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [jobId]);
 
   const handleApply = (event) => {
     event.preventDefault();
@@ -21,8 +38,8 @@ export default function JobDetail() {
         <div className="company-logo company-logo-large logo-blue"><Icon name="briefcase" /></div>
         <div className="hero-job-copy">
           <span className="badge badge-blue">Tin tuyển dụng</span>
-          <h2 className="display-title">Chi tiết việc làm</h2>
-          <span>Mã tin: {jobId}</span>
+          <h2 className="display-title">{job?.title || 'Chi tiết việc làm'}</h2>
+          <span>{job?.company_name || `Mã tin: ${jobId}`}</span>
         </div>
       </section>
 
@@ -34,11 +51,29 @@ export default function JobDetail() {
               <p className="muted small">Thông tin vị trí tuyển dụng được cung cấp bởi nhà tuyển dụng.</p>
             </div>
           </div>
-          <div className="empty-state">
-            <Icon name="file" size={25} />
-            <strong>Thông tin chi tiết chưa khả dụng</strong>
-            <p>Không thể hiển thị mô tả công việc cho tin #{jobId} ở phiên bản hiện tại.</p>
-          </div>
+          {jobError && <div className="alert-box alert-error" role="alert">{jobError}</div>}
+          {job ? (
+            <div className="content-stack compact">
+              <div className="meta-row">
+                <span><Icon name="map" size={15} />{job.location || 'Chưa cập nhật'}</span>
+                <span><Icon name="briefcase" size={15} />{job.level || 'MID'}</span>
+                <span><Icon name="wallet" size={15} />{job.salary
+                  ? `${Number(job.salary.min || 0).toLocaleString('vi-VN')} - ${Number(job.salary.max || 0).toLocaleString('vi-VN')} ${job.salary.currency || 'VND'}`
+                  : 'Thỏa thuận'}</span>
+                <span><Icon name="clock" size={15} />Kinh nghiệm: {job.experience_required || 0} năm</span>
+              </div>
+              <h4 className="section-title">Mô tả công việc</h4>
+              <div className="job-description-content">{job.description}</div>
+              <h4 className="section-title">Kỹ năng yêu cầu</h4>
+              <p className="muted small">{Array.isArray(job.required_skill_names) && job.required_skill_names.length ? job.required_skill_names.join(', ') : 'Nhà tuyển dụng chưa chỉ định kỹ năng.'}</p>
+            </div>
+          ) : !jobError && (
+            <div className="empty-state">
+              <Icon name="file" size={25} />
+              <strong>Đang tải thông tin tuyển dụng</strong>
+              <p>Vui lòng chờ trong giây lát.</p>
+            </div>
+          )}
         </section>
 
         <section className="card">
