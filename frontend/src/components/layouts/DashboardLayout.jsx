@@ -23,6 +23,13 @@ const ROLE_NAV = {
   admin: [{ to: '/admin', label: 'Trung tâm quản trị', icon: 'shield', end: true }],
 };
 
+ROLE_NAV.recruiter.push(
+  { to: '/recruiter/company-profile', label: 'Hồ sơ công ty', icon: 'building' },
+);
+
+PAGE_COPY['/recruiter/company-profile'] = ['Hồ sơ doanh nghiệp', 'Cập nhật thông tin và theo dõi trạng thái kiểm duyệt.'];
+PAGE_COPY['/recruiter/jobs'] = ['Tin tuyển dụng', 'Quản lý nội dung và trạng thái tuyển dụng của doanh nghiệp.'];
+
 const ROLE_NAMES = {
   candidate: 'ỨNG VIÊN',
   recruiter: 'NHÀ TUYỂN DỤNG',
