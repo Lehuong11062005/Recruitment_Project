@@ -94,6 +94,9 @@ const Login = () => {
       </section>
       <section className="auth-form-wrap">
         <div className="auth-form">
+          <Link to="/login" className="brand mobile-brand">
+            <span className="brand-mark"><Icon name="spark" size={20} /></span><span>CareerAI</span>
+          </Link>
           <h2 className="auth-heading">Chào mừng bạn trở lại</h2>
           <p>Đăng nhập để tiếp tục hành trình nghề nghiệp.</p>
           <div className="auth-tabs" role="tablist" aria-label="Xác thực tài khoản">

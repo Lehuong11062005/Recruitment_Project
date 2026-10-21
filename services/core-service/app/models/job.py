@@ -15,7 +15,7 @@ class JobPosting(Document):
     salary: Optional[Dict[str, Any]] = None       # {"min": 1000, "max": 2000, "currency": "VND"}
     location: Optional[str] = None
     job_embedding_vector: Optional[List[float]] = None
-    embedding_model: Optional[str] = "all-MiniLM-L6-v2"
+    embedding_model: Optional[str] = "paraphrase-multilingual-MiniLM-L12-v2"
     views_count: int = 0
     applications_count: int = 0
     status: str = "OPEN"                          # "OPEN", "CLOSED", "HIDDEN"

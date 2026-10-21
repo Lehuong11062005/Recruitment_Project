@@ -2,10 +2,10 @@ from typing import List
 from fastapi import APIRouter, status, Depends, Query
 from app.schemas.company import CompanyCreateSchema, CompanyUpdateSchema, CompanyResponseSchema
 from app.services.company_service import CompanyService
-from app.core.deps import get_current_user  
+from app.core.deps import get_current_recruiter
 from app.models.user import User
 
-router = APIRouter(tags=["Company Profile"])
+router = APIRouter()
 
 
 @router.post(
@@ -20,7 +20,7 @@ router = APIRouter(tags=["Company Profile"])
 )
 async def create_company(
     data: CompanyCreateSchema, 
-    current_user: User = Depends(get_current_user) 
+    current_user: User = Depends(get_current_recruiter)
 ):
     return await CompanyService.create_company(data, current_user)
 
@@ -47,6 +47,6 @@ async def get_company(company_id: str):
 async def update_company(
     company_id: str, 
     data: CompanyUpdateSchema, 
-    current_user: User = Depends(get_current_user)  
+    current_user: User = Depends(get_current_recruiter)
 ):
     return await CompanyService.update_company(company_id, data, current_user)

@@ -29,3 +29,5 @@ class ApplicationResponse(BaseModel):
     ai_analysis: Optional[AIAnalysisResponse] = None
     parsed_text_preview: Optional[str] = None          # 300 ký tự đầu để kiểm tra nhanh
     applied_at: datetime
+    job_title: Optional[str] = None
+    company_name: Optional[str] = None

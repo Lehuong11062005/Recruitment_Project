@@ -18,6 +18,7 @@ from pymongo.errors import DuplicateKeyError
 from app.core.config import settings
 from app.core.storage import CV_DIR, UPLOAD_URL_PREFIX
 from app.models.application import AIAnalysis, Application, StatusHistory
+from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
@@ -43,6 +44,20 @@ def _clamp_score(value: Any) -> Optional[float]:
 
 def _ai_url(path: str) -> str:
     return settings.AI_URL.rstrip("/") + path
+
+
+def _candidate_experience_years(user: User) -> float:
+    years_total = 0.0
+    for item in user.profile.experience if user.profile else []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            years = float(item.get("years") or 0)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(years) and years > 0:
+            years_total += years
+    return years_total
 
 
 async def _call_ai_parse(filename: str, data: bytes) -> Optional[Dict[str, Any]]:
@@ -80,6 +95,7 @@ async def _call_ai_match(
     candidate_skills: List[str],
     job: JobPosting,
     required_names: List[str],
+    candidate_experience_years: float = 0.0,
 ) -> Optional[Dict[str, Any]]:
     """Match parsed CV data against a job using the AI Service JSON contract."""
     url = _ai_url(AI_MATCH_PATH)
@@ -88,7 +104,7 @@ async def _call_ai_match(
         "jd_text": f"{job.title}\n{job.description}",
         "candidate_skills": candidate_skills,
         "required_skills": required_names,
-        "candidate_experience_years": 0.0,
+        "candidate_experience_years": candidate_experience_years,
         "job_experience_required": float(job.experience_required or 0),
     }
     try:
@@ -171,6 +187,39 @@ def _to_response(app: Application, ai_status: str, id_to_name: Dict[Any, str]) -
     )
 
 
+async def _application_response(app: Application) -> ApplicationResponse:
+    skills = await SkillsTaxonomy.find_all().to_list()
+    id_to_name = {skill.id: skill.name for skill in skills}
+    response = _to_response(
+        app,
+        "DONE" if app.ai_match_score is not None else "FAILED",
+        id_to_name,
+    )
+    job = await JobPosting.get(app.job_id)
+    if job is not None:
+        company = await Company.get(job.company_id)
+        response.job_title = job.title
+        response.company_name = company.name if company else None
+    return response
+
+
+async def list_candidate_applications(user: User) -> List[ApplicationResponse]:
+    applications = await Application.find(
+        Application.candidate_id == user.id
+    ).sort("-applied_at").to_list()
+    return [await _application_response(app) for app in applications]
+
+
+async def get_candidate_application(
+    user: User,
+    application_id: PydanticObjectId,
+) -> ApplicationResponse:
+    app = await Application.get(application_id)
+    if app is None or app.candidate_id != user.id:
+        raise CVError(404, "Không tìm thấy hồ sơ ứng tuyển")
+    return await _application_response(app)
+
+
 # ---------- nghiệp vụ chính ----------
 async def apply_job(
     user: User,
@@ -208,7 +257,13 @@ async def apply_job(
     if parsed is not None:
         parsed_text = parsed["parsed_text"]
         embedding = [float(value) for value in parsed["embedding_vector"]]
-        ai = await _call_ai_match(parsed_text, parsed["skills"], job, required_names)
+        ai = await _call_ai_match(
+            parsed_text,
+            parsed["skills"],
+            job,
+            required_names,
+            _candidate_experience_years(user),
+        )
         if ai is not None:
             score = _clamp_score(ai["ai_match_score"])
             version = ai["matching_version"]

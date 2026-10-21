@@ -69,9 +69,14 @@ class CVParserService:
     @classmethod
     def parse_pdf_full(cls, filename: str, pdf_bytes: bytes) -> ParseCVResponse:
         parsed_text = cls.extract_text_from_pdf(pdf_bytes)
+        if not parsed_text:
+            raise HTTPException(
+                status_code=422,
+                detail="Không trích xuất được văn bản từ PDF; CV có thể là bản scan cần OCR.",
+            )
         skills = cls.extract_skills(parsed_text)
         model = ModelLoader.get_model()
-        embedding = model.encode(parsed_text).tolist() if parsed_text else []
+        embedding = model.encode(parsed_text).tolist()
 
         return ParseCVResponse(
             status="success",

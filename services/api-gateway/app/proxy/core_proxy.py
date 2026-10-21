@@ -15,7 +15,7 @@ async def proxy_core(path: str, request: Request):
     # Tao URL dich tu CORE_URL va duong dan request.
     url = f"{settings.CORE_URL.rstrip('/')}/{path.lstrip('/')}"
 
-       # Doc request body.
+    # Doc request body.
     body = await request.body()
 
     # Khong chuyen header Host cua Gateway sang Core Service.

@@ -114,6 +114,9 @@ const Register = () => {
       </section>
       <section className="auth-form-wrap">
         <div className="auth-form register-form">
+          <Link to="/login" className="brand mobile-brand">
+            <span className="brand-mark"><Icon name="spark" size={20} /></span><span>CareerAI</span>
+          </Link>
           <h2 className="auth-heading">Tạo tài khoản mới</h2>
           <p>Chọn vai trò và điền thông tin của bạn.</p>
           <div className="auth-tabs" role="tablist" aria-label="Xác thực tài khoản">

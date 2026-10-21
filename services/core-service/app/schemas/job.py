@@ -1,11 +1,11 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from beanie import PydanticObjectId
 
 class JobCreateSchema(BaseModel):
     title: str
     description: str
-    required_skills: List[PydanticObjectId] = []
+    required_skills: List[PydanticObjectId] = Field(default_factory=list)
     level: Optional[str] = "MID"
     experience_required: int = 0
     salary: Optional[Dict[str, Any]] = None

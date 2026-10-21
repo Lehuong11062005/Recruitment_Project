@@ -13,6 +13,26 @@ from app.services.cv_utils import CVError
 router = APIRouter()
 
 
+@router.get("/me", response_model=List[ApplicationResponse], summary="Danh sách đơn ứng tuyển của tôi")
+async def list_my_applications(user: User = Depends(get_current_candidate)):
+    return await application_service.list_candidate_applications(user)
+
+
+@router.get("/{application_id}", response_model=ApplicationResponse, summary="Chi tiết đơn ứng tuyển")
+async def get_my_application(
+    application_id: str,
+    user: User = Depends(get_current_candidate),
+):
+    try:
+        oid = PydanticObjectId(application_id)
+    except Exception:
+        raise HTTPException(422, "application_id không hợp lệ")
+    try:
+        return await application_service.get_candidate_application(user, oid)
+    except CVError as exc:
+        raise HTTPException(exc.status_code, exc.message)
+
+
 @router.post("", response_model=ApplicationResponse, status_code=201,
              summary="Nộp hồ sơ ứng tuyển + AI chấm điểm CV-JD (UC-C5)")
 async def apply_to_job(

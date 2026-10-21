@@ -4,6 +4,7 @@ import Icon from '../Icon';
 
 const PAGE_COPY = {
   '/candidate': ['Tổng quan ứng viên', 'Theo dõi hồ sơ và cơ hội việc làm phù hợp.'],
+  '/candidate/profile': ['Hồ sơ ứng viên', 'Cập nhật thông tin, kỹ năng, kinh nghiệm và CV.'],
   '/candidate/jobs': ['Tìm kiếm việc làm', 'Khám phá các cơ hội đang tuyển dụng.'],
   '/candidate/applications': ['Đơn ứng tuyển của tôi', 'Theo dõi trạng thái hồ sơ đã nộp.'],
   '/candidate/messages': ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.'],
@@ -15,6 +16,7 @@ const PAGE_COPY = {
 const ROLE_NAV = {
   candidate: [
     { to: '/candidate', label: 'Tổng quan', icon: 'grid', end: true },
+    { to: '/candidate/profile', label: 'Hồ sơ cá nhân', icon: 'user' },
     { to: '/candidate/jobs', label: 'Tìm việc làm', icon: 'search' },
     { to: '/candidate/applications', label: 'Đơn ứng tuyển', icon: 'briefcase' },
     { to: '/candidate/messages', label: 'Tin nhắn', icon: 'message' },
@@ -49,15 +51,16 @@ export default function DashboardLayout({ roleLabel, role = 'candidate' }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [title, subtitle] = PAGE_COPY[pathname] || (
-    pathname.startsWith('/candidate/jobs/')
-      ? ['Chi tiết việc làm', 'Thông tin tuyển dụng và ứng tuyển.']
+    pathname.startsWith('/recruiter/jobs/')
+      ? ['Xếp hạng ứng viên', 'API hồ sơ ứng tuyển chưa được xác minh.']
+      : pathname.startsWith('/candidate/jobs/')
+        ? ['Chi tiết việc làm', 'Thông tin tuyển dụng và ứng tuyển.']
       : pathname.startsWith('/candidate/applications/')
         ? ['Chi tiết đơn ứng tuyển', 'Theo dõi tiến trình xử lý hồ sơ.']
         : ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.']
   );
   const navItems = ROLE_NAV[role];
   const displayName = user?.full_name || user?.email || roleLabel;
-
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
@@ -73,13 +76,7 @@ export default function DashboardLayout({ roleLabel, role = 'candidate' }) {
         <div className="workspace-label">{ROLE_NAMES[role]}</div>
         <nav aria-label="Điều hướng chính">
           {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => (isActive ? 'active' : '')}
-              title={item.label}
-            >
+            <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => (isActive ? 'active' : '')} title={item.label}>
               <Icon name={item.icon} size={19} />
               <span>{item.label}</span>
             </NavLink>
@@ -88,30 +85,19 @@ export default function DashboardLayout({ roleLabel, role = 'candidate' }) {
         <div className="sidebar-account">
           <div className="sidebar-user">
             <span className="avatar avatar-blue">{initials(displayName) || 'U'}</span>
-            <span className="sidebar-user-copy">
-              <strong>{displayName}</strong>
-              <small>{user?.email || roleLabel}</small>
-            </span>
+            <span className="sidebar-user-copy"><strong>{displayName}</strong><small>{user?.email || roleLabel}</small></span>
           </div>
           <button type="button" className="logout-button" onClick={handleLogout} title="Đăng xuất">
-            <Icon name="logout" size={18} />
-            <span>Đăng xuất</span>
+            <Icon name="logout" size={18} /><span>Đăng xuất</span>
           </button>
         </div>
       </aside>
-
       <main className="main-area">
         <header className="topbar">
-          <div className="page-heading">
-            <h1 className="page-title">{title}</h1>
-            <span>{subtitle}</span>
-          </div>
+          <div className="page-heading"><h1 className="page-title">{title}</h1><span>{subtitle}</span></div>
           <div className="top-actions">
             <span className="topbar-avatar avatar avatar-blue">{initials(displayName) || 'U'}</span>
-            <span className="topbar-identity">
-              <strong>{displayName}</strong>
-              <small>{roleLabel}</small>
-            </span>
+            <span className="topbar-identity"><strong>{displayName}</strong><small>{roleLabel}</small></span>
           </div>
         </header>
         <div className="page-content"><Outlet /></div>

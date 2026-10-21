@@ -1,11 +1,16 @@
 from datetime import datetime
+import math
 from typing import List, Optional, Tuple
+import logging
 import httpx
 from fastapi import HTTPException, status
+from app.core.config import settings
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.schemas.job import JobCreateSchema, JobUpdateSchema, JobStatusUpdateSchema
 from datetime import timezone
+
+logger = logging.getLogger(__name__)
 
 class JobService:
     @staticmethod
@@ -14,17 +19,28 @@ class JobService:
         Gửi văn bản JD sang AI Service để sinh vector nhúng.
         Nếu AI Service lỗi hoặc sập, trả về (None, None) để không làm gián đoạn thao tác của HR.
         """
-        ai_service_url = "http://127.0.0.1:8002/api/v1/ai/embed"
+        ai_service_url = settings.AI_URL.rstrip("/") + "/api/v1/ai/embed"
         text_to_embed = f"{title}\n{description}\nSkills: {', '.join(skills)}"
         
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.post(ai_service_url, json={"text": text_to_embed})
-                if response.status_code == 200:
-                    data = response.json()
-                    return data.get("embedding_vector"), data.get("model_name", "all-MiniLM-L6-v2")
-        except Exception as e:
-            print(f"[AI Service Warning] Lỗi sinh embedding: {e}")
+                response.raise_for_status()
+                data = response.json()
+                embedding = data.get("embedding")
+                model_version = data.get("model_version")
+                if (
+                    isinstance(embedding, list)
+                    and all(
+                        isinstance(value, (int, float)) and math.isfinite(value)
+                        for value in embedding
+                    )
+                    and model_version
+                ):
+                    return embedding, model_version
+                logger.warning("AI Service returned an invalid embedding response")
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("AI Service embedding request failed: %s", e)
         
         return None, None
 
@@ -37,24 +53,8 @@ class JobService:
                 detail="Vui lòng cập nhật hồ sơ doanh nghiệp trước khi đăng tin"
             )
         
-        # Gọi AI Service sinh vector nhúng
-        vector, model_name = await JobService.generate_job_embedding(
-            job_in.title, job_in.description, [str(s) for s in job_in.required_skills]
-        )
-        
-        # Khởi tạo bản ghi với các giá trị mặc định
-        job = JobPosting(
-            **job_in.model_dump(),
-            company_id=current_user.company_id,
-            recruiter_id=current_user.id,
-            status="OPEN",
-            views_count=0,
-            applications_count=0,
-            job_embedding_vector=vector,
-            embedding_model=model_name or "all-MiniLM-L6-v2"
-        )
-        await job.insert()
-        return job
+        await JobService.validate_required_skills(job_in.required_skills)
+        return await JobService.create_job_with_embedding(job_in, current_user)
 
     @staticmethod
     async def update_job(job_id: str, job_in: JobUpdateSchema, current_user) -> JobPosting:
@@ -69,25 +69,17 @@ class JobService:
                 detail="Bạn không có quyền chỉnh sửa tin tuyển dụng này"
             )
         
-        update_data = job_in.model_dump(exclude_unset=True)
-        update_data["updated_at"] = datetime.utcnow()
-        
-        await job.update({"$set": update_data})
-        
-        # Cập nhật lại vector nhúng nếu tiêu đề, mô tả hoặc kỹ năng thay đổi
-        if any(k in update_data for k in ["title", "description", "required_skills"]):
-            vector, model_name = await JobService.generate_job_embedding(
-                job.title, job.description, [str(s) for s in job.required_skills]
-            )
-            await job.update({"$set": {
-                "job_embedding_vector": vector,
-                "embedding_model": model_name or "all-MiniLM-L6-v2"
-            }})
-            
-        return job
+        if job_in.required_skills is not None:
+            await JobService.validate_required_skills(job_in.required_skills)
+        return await JobService.update_job_with_embedding(job_id, job_in, current_user)
 
     @staticmethod
     async def update_status(job_id: str, status_in: JobStatusUpdateSchema, current_user):
+        if status_in.status not in {"OPEN", "CLOSED", "HIDDEN"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Trạng thái tin tuyển dụng phải là OPEN, CLOSED hoặc HIDDEN",
+            )
         job = await JobPosting.get(job_id)
         if not job or job.deleted_at is not None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
@@ -153,7 +145,7 @@ class JobService:
             views_count=0,
             applications_count=0,
             job_embedding_vector=vector,
-            embedding_model=model_name or "all-MiniLM-L6-v2",
+            embedding_model=model_name or "paraphrase-multilingual-MiniLM-L12-v2",
         )
         await job.insert()
         return job
@@ -173,20 +165,21 @@ class JobService:
         if not update_data:
             return job
 
-        title = update_data.get("title", job.title)
-        description = update_data.get("description", job.description)
-        required_skills = update_data.get("required_skills", job.required_skills)
-        skill_names = await JobService.get_required_skill_names(required_skills)
-        vector, model_name = await JobService.generate_job_embedding(
-            title,
-            description,
-            skill_names,
-        )
-        update_data.update({
-            "job_embedding_vector": vector,
-            "embedding_model": model_name or "all-MiniLM-L6-v2",
-            "updated_at": datetime.now(timezone.utc),
-        })
+        if any(field in update_data for field in ("title", "description", "required_skills")):
+            title = update_data.get("title", job.title)
+            description = update_data.get("description", job.description)
+            required_skills = update_data.get("required_skills", job.required_skills)
+            skill_names = await JobService.get_required_skill_names(required_skills)
+            vector, model_name = await JobService.generate_job_embedding(
+                title,
+                description,
+                skill_names,
+            )
+            if vector is not None:
+                update_data["job_embedding_vector"] = vector
+            if model_name:
+                update_data["embedding_model"] = model_name
+        update_data["updated_at"] = datetime.now(timezone.utc)
         await job.update({"$set": update_data})
         updated_job = await JobPosting.get(job_id)
         if not updated_job:

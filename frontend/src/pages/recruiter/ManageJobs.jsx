@@ -70,7 +70,7 @@ export default function ManageJobs() {
       .finally(() => {
         if (active) setLoading(false);
       });
-    jobService.getSkills({ limit: 100 })
+    jobService.getSkills({ limit: 200 })
       .then((response) => {
         if (active) setSkills(getRows(response));
       })

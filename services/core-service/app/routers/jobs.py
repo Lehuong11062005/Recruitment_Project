@@ -6,7 +6,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_recruiter
 from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
@@ -21,20 +21,10 @@ from app.services.job_service import JobService
 router = APIRouter(tags=["Jobs"])
 
 
-async def get_current_recruiter(current_user=Depends(get_current_user)):
-    """Chỉ cho phép tài khoản nhà tuyển dụng thực hiện thao tác quản lý tin."""
-    user_role = getattr(current_user, "user_type", None)
-    if user_role != "RECRUITER":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Chỉ tài khoản Nhà tuyển dụng (Recruiter) mới có quyền thực hiện thao tác này",
-        )
-    return current_user
-
-
 def _serialize_candidate_job(doc: dict) -> dict:
     """Chuyển tài liệu MongoDB thành JSON cho giao diện ứng viên."""
     company = doc.pop("company", None)
+    skill_documents = doc.pop("required_skill_docs", [])
 
     doc["id"] = str(doc.pop("_id"))
 
@@ -45,6 +35,7 @@ def _serialize_candidate_job(doc: dict) -> dict:
     doc["required_skills"] = [
         str(skill) for skill in doc.get("required_skills", [])
     ]
+    doc["required_skill_names"] = [skill.get("name", "") for skill in skill_documents]
 
     doc["company_name"] = company.get("name", "") if company else ""
     if company:
@@ -119,6 +110,7 @@ async def search_jobs(
     keyword: Optional[str] = Query(None, max_length=100),
     location: Optional[str] = Query(None, max_length=100),
     level: Optional[str] = Query(None, max_length=30),
+    q: Optional[str] = Query(None, max_length=100, include_in_schema=False),
     salary_min: Optional[float] = Query(None, ge=0),
     salary_max: Optional[float] = Query(None, ge=0),
     page: int = Query(1, ge=1),
@@ -156,12 +148,22 @@ async def search_jobs(
                 "preserveNullAndEmptyArrays": True,
             }
         },
+        {"$match": {"company.verification_status": "VERIFIED"}},
+        {
+            "$lookup": {
+                "from": "skills_taxonomy",
+                "localField": "required_skills",
+                "foreignField": "_id",
+                "as": "required_skill_docs",
+            }
+        },
     ]
 
     filters = {}
 
-    if keyword and keyword.strip():
-        pattern = re.escape(keyword.strip())
+    search_keyword = keyword or q
+    if search_keyword and search_keyword.strip():
+        pattern = re.escape(search_keyword.strip())
         filters["$or"] = [
             {"title": {"$regex": pattern, "$options": "i"}},
             {"description": {"$regex": pattern, "$options": "i"}},
@@ -219,8 +221,9 @@ async def search_jobs(
     }
 
 
-# Keep this static route before /{job_id} so "mine" is not treated as a job ID.
-@router.get("/mine", summary="Danh sách tin tuyển dụng của tôi")
+# Keep static routes before /{job_id}.
+@router.get("/mine", summary="Danh sách tin tuyển dụng của tôi", include_in_schema=False)
+@router.get("/my-jobs", summary="Danh sách tin tuyển dụng của tôi")
 async def list_my_jobs(current_user=Depends(get_current_recruiter)):
     jobs = await JobPosting.find(
         {
@@ -266,6 +269,15 @@ async def get_candidate_job_detail(job_id: str):
                     "preserveNullAndEmptyArrays": True,
                 }
             },
+            {"$match": {"company.verification_status": "VERIFIED"}},
+            {
+                "$lookup": {
+                    "from": "skills_taxonomy",
+                    "localField": "required_skills",
+                    "foreignField": "_id",
+                    "as": "required_skill_docs",
+                }
+            },
             {
                 "$project": {
                     "job_embedding_vector": 0,
@@ -308,6 +320,15 @@ async def update_job(
 ):
     updated_job = await JobService.update_job(job_id, job_in, current_user)
     return updated_job
+
+
+@router.patch("/{job_id}")
+async def patch_job(
+    job_id: str,
+    job_in: JobUpdateSchema,
+    current_user=Depends(get_current_recruiter),
+):
+    return await JobService.update_job(job_id, job_in, current_user)
 
 
 @router.patch("/{job_id}/status")
