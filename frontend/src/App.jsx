@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { ROLES } from './constants/roles';
 
 import PrivateRoute from './components/PrivateRoute';
@@ -14,11 +14,14 @@ import Register from './pages/auth/Register';
 import CandidateDashboard from './pages/candidate/CandidateDashboard';
 import JobList from './pages/candidate/JobList';
 import JobDetail from './pages/candidate/JobDetail';
+import { LiveJobList } from './pages/candidate/JobList';
+import { LiveJobDetail } from './pages/candidate/JobDetail';
 import MyApplications from './pages/candidate/MyApplications';
 import ApplicationDetail from './pages/candidate/ApplicationDetail';
 import Chat from './pages/candidate/Chat';
 
 import ManageJobs from './pages/recruiter/ManageJobs';
+import CompanyProfile from './pages/recruiter/CompanyProfile';
 import Dashboard from './pages/admin/Dashboard';
 
 import Forbidden from './pages/common/Forbidden';
@@ -39,6 +42,8 @@ export default function App() {
       <Route element={<PrivateRoute allowedRoles={[ROLES.CANDIDATE]} />}>
         <Route path="/candidate" element={<CandidateLayout />}>
           <Route index element={<CandidateDashboard />} />
+          <Route path="jobs" element={<LiveJobList />} />
+          <Route path="jobs/:jobId" element={<LiveJobDetail />} />
           <Route path="jobs" element={<JobList />} /> {/* UC-C4 */}
           <Route path="jobs/:jobId" element={<JobDetail />} /> {/* UC-C5 */}
           <Route path="applications" element={<MyApplications />} /> {/* UC-C7 */}
@@ -53,6 +58,9 @@ export default function App() {
         <Route path="/recruiter" element={<RecruiterLayout />}>
           <Route index element={<ManageJobs />} />
           <Route path="jobs" element={<ManageJobs />} />
+          <Route path="manage-jobs" element={<Navigate to="/recruiter/jobs" replace />} />
+          <Route path="manage-jobs/create" element={<Navigate to="/recruiter/jobs" replace />} />
+          <Route path="company-profile" element={<CompanyProfile />} />
         </Route>
       </Route>
 
