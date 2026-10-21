@@ -25,6 +25,13 @@ const ROLE_NAV = {
   admin: [{ to: '/admin', label: 'Trung tâm quản trị', icon: 'shield', end: true }],
 };
 
+ROLE_NAV.recruiter.push(
+  { to: '/recruiter/company-profile', label: 'Hồ sơ công ty', icon: 'building' },
+);
+
+PAGE_COPY['/recruiter/company-profile'] = ['Hồ sơ doanh nghiệp', 'Cập nhật thông tin và theo dõi trạng thái kiểm duyệt.'];
+PAGE_COPY['/recruiter/jobs'] = ['Tin tuyển dụng', 'Quản lý nội dung và trạng thái tuyển dụng của doanh nghiệp.'];
+
 const ROLE_NAMES = {
   candidate: 'ỨNG VIÊN',
   recruiter: 'NHÀ TUYỂN DỤNG',
@@ -44,8 +51,10 @@ export default function DashboardLayout({ roleLabel, role = 'candidate' }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [title, subtitle] = PAGE_COPY[pathname] || (
-    pathname.startsWith('/candidate/jobs/')
-      ? ['Chi tiết việc làm', 'Thông tin tuyển dụng và ứng tuyển.']
+    pathname.startsWith('/recruiter/jobs/')
+      ? ['Xếp hạng ứng viên', 'API hồ sơ ứng tuyển chưa được xác minh.']
+      : pathname.startsWith('/candidate/jobs/')
+        ? ['Chi tiết việc làm', 'Thông tin tuyển dụng và ứng tuyển.']
       : pathname.startsWith('/candidate/applications/')
         ? ['Chi tiết đơn ứng tuyển', 'Theo dõi tiến trình xử lý hồ sơ.']
         : ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.']

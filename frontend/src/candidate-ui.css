@@ -3,17 +3,17 @@
    Keep Tailwind utilities in index.css; this file complements them. */
 
 :root {
-  --career-ink: #15233b;
+  --career-ink: #142b4a;
   --career-muted: #64748b;
-  --career-border: #e2e8f0;
+  --career-border: #dce5f0;
   --career-surface: #ffffff;
-  --career-bg: #f4f7fb;
-  --career-blue: #2563eb;
-  --career-blue-dark: #1d4ed8;
-  --career-sidebar: #111827;
+  --career-bg: #f5f8fc;
+  --career-blue: #155eef;
+  --career-blue-dark: #0e4ed4;
+  --career-sidebar: #142b4a;
   --career-sidebar-muted: #aab7ca;
-  --career-radius: 16px;
-  --career-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+  --career-radius: 12px;
+  --career-shadow: none;
 }
 
 html { min-width: 320px; }
@@ -44,7 +44,7 @@ a { text-underline-offset: 3px; }
   padding: 1.35rem 1rem 1rem;
   overflow-y: auto;
   color: #f8fafc;
-  background: linear-gradient(180deg, #111827 0%, #16243a 100%);
+  background: var(--career-sidebar);
   border-right: 1px solid rgba(255,255,255,.06);
 }
 .brand {
@@ -66,9 +66,8 @@ a { text-underline-offset: 3px; }
   height: 38px;
   flex: 0 0 38px;
   color: white;
-  background: linear-gradient(135deg, #3b82f6, #7c3aed);
+  background: var(--career-blue);
   border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(59,130,246,.24);
 }
 .workspace-label {
   margin: .3rem .6rem -.45rem;
@@ -100,9 +99,8 @@ a { text-underline-offset: 3px; }
 .sidebar nav a:hover { color: white; background: rgba(255,255,255,.07); }
 .sidebar nav a.active {
   color: #fff;
-  background: linear-gradient(100deg, rgba(37,99,235,.95), rgba(79,70,229,.88));
+  background: var(--career-blue);
   border-color: rgba(147,197,253,.2);
-  box-shadow: 0 5px 14px rgba(37,99,235,.17);
 }
 .sidebar-account {
   display: flex;
@@ -157,7 +155,7 @@ a { text-underline-offset: 3px; }
 .topbar-identity strong { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
 .topbar-identity small { color: var(--career-muted); font-size: .74rem; }
 .avatar { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; font-size: .8rem; font-weight: 800; }
-.avatar-blue { color: #1d4ed8; background: #dbeafe; border: 2px solid #fff; box-shadow: 0 0 0 1px #bfdbfe; }
+.avatar-blue { color: #1d4ed8; background: #dbeafe; border: 2px solid #fff; }
 .topbar-avatar { width: 40px; height: 40px; }
 .page-content { width: 100%; max-width: 1500px; box-sizing: border-box; margin: 0 auto; padding: clamp(1.15rem, 2.5vw, 2rem); }
 
@@ -167,7 +165,7 @@ a { text-underline-offset: 3px; }
   min-width: 0;
   padding: clamp(1rem, 2vw, 1.45rem);
   background: var(--career-surface);
-  border: 1px solid #e6ebf2;
+  border: 1px solid var(--career-border);
   border-radius: var(--career-radius);
   box-shadow: var(--career-shadow);
 }
@@ -207,7 +205,7 @@ a { text-underline-offset: 3px; }
   min-height: 40px;
   padding: .62rem .95rem;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: .86rem;
   line-height: 1.2;
   font-weight: 750;
@@ -215,7 +213,7 @@ a { text-underline-offset: 3px; }
   transition: transform .12s ease, background .15s ease, box-shadow .15s ease;
 }
 .btn:hover:not(:disabled) { transform: translateY(-1px); }
-.btn-primary { color: #fff; background: var(--career-blue); border-color: var(--career-blue); box-shadow: 0 4px 10px rgba(37,99,235,.13); }
+.btn-primary { color: #fff; background: var(--career-blue); border-color: var(--career-blue); }
 .btn-primary:hover:not(:disabled) { background: var(--career-blue-dark); }
 .btn-secondary { color: #334155; background: #fff; border-color: #cbd5e1; }
 .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
@@ -227,6 +225,7 @@ a { text-underline-offset: 3px; }
   max-width: 100%;
   color: #0f172a;
   background-color: #fff;
+  border-radius: 8px;
 }
 .card input:focus, .card select:focus, .card textarea:focus {
   outline: 3px solid rgba(59,130,246,.15);
@@ -252,7 +251,7 @@ a { text-underline-offset: 3px; }
   flex: 0 0 auto;
   border-radius: 50%;
   color: #1d4ed8;
-  background: radial-gradient(closest-side, white 79%, transparent 81%), conic-gradient(#3b82f6 0 72%, #dbeafe 72% 100%);
+  background: #edf4ff;
   font-size: 1.03rem;
   font-weight: 850;
 }

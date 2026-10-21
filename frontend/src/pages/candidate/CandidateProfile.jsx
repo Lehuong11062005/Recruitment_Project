@@ -185,7 +185,7 @@ export default function CandidateProfile() {
   return (
     <div className="content-stack">
       <section className="card">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>{CANDIDATE_DEMO_MODE && <span className="badge badge-amber">Chế độ demo</span>}</div>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>{CANDIDATE_DEMO_MODE && <span className="badge badge-amber">DỮ LIỆU DEMO</span>}</div>
       </section>
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {notice && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{notice}</div>}

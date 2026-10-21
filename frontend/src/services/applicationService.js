@@ -11,4 +11,6 @@ export const applicationService = {
   },
   getMyApplications: (params = {}) => api.get('/api/v1/applications/me', { params }),
   getApplicationDetail: (applicationId) => api.get(`/api/v1/applications/${applicationId}`),
+  getAIAnalysis: (applicationId) => api.get(`/api/v1/ai-analysis/applications/${applicationId}`),
+  retryAIAnalysis: (applicationId) => api.post(`/api/v1/ai-analysis/applications/${applicationId}/retry`),
 };

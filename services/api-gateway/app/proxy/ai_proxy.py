@@ -30,6 +30,5 @@ async def proxy_ai(path: str, request: Request):
     return Response(
         content=response.content,
         status_code=response.status_code,
-        headers=dict(response.headers),
         media_type=response.headers.get("content-type"),
     )

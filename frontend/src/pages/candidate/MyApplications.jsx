@@ -1,24 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PIPELINE_STATUS, PIPELINE_STATUS_LABELS } from '../../constants/status';
-
-const MOCK_APPLICATIONS = [
-  {
-    id: 'app-001',
-    job_title: 'Backend Developer (Python / FastAPI)',
-    company_name: 'FPT Software',
-    pipeline_status: PIPELINE_STATUS.APPLIED,
-    ai_match_score: 86,
-    applied_at: '15/10/2026',
-  },
-  {
-    id: 'app-002',
-    job_title: 'Frontend Engineer (ReactJS)',
-    company_name: 'VNG Corporation',
-    pipeline_status: PIPELINE_STATUS.INTERVIEW,
-    ai_match_score: 92,
-    applied_at: '12/10/2026',
-  },
-];
+import { applicationService } from '../../services/applicationService';
 
 const statusTone = {
   [PIPELINE_STATUS.APPLIED]: '',
@@ -29,6 +12,28 @@ const statusTone = {
 };
 
 export default function MyApplications() {
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    applicationService.getMyApplications()
+      .then((result) => {
+        if (!active) return;
+        const rows = result?.items ?? result;
+        if (!Array.isArray(rows)) throw new Error('Danh sách đơn ứng tuyển không đúng định dạng.');
+        setApplications(rows);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || 'Không thể tải danh sách đơn ứng tuyển.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   return (
     <div className="content-stack">
       <section className="card">
@@ -37,36 +42,27 @@ export default function MyApplications() {
             <h2 className="section-title">Danh sách đơn ứng tuyển</h2>
             <p className="muted small">Theo dõi trạng thái xử lý các hồ sơ đã gửi.</p>
           </div>
-          <span className="badge badge-gray">{MOCK_APPLICATIONS.length} hồ sơ</span>
+          <span className="badge badge-gray">{applications.length} hồ sơ</span>
         </div>
-        {MOCK_APPLICATIONS.length > 0 ? (
+        {error && <div className="alert-box alert-error" role="alert">{error}</div>}
+        {loading ? (
+          <div className="empty-state" role="status">Đang tải danh sách hồ sơ…</div>
+        ) : applications.length ? (
           <div className="application-table-wrap">
-            <div className="demo-disclaimer">
-              <span>Danh sách hiện tại dùng các dữ liệu mẫu đã có trong frontend.</span>
-            </div>
             <table className="application-table">
               <thead>
-                <tr>
-                  <th>Vị trí ứng tuyển</th>
-                  <th>Doanh nghiệp</th>
-                  <th>AI Match</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày nộp</th>
-                  <th aria-label="Thao tác" />
-                </tr>
+                <tr><th>Vị trí ứng tuyển</th><th>Doanh nghiệp</th><th>AI Match</th><th>Trạng thái</th><th>Ngày nộp</th><th aria-label="Thao tác" /></tr>
               </thead>
               <tbody>
-                {MOCK_APPLICATIONS.map((application) => (
+                {applications.map((application) => (
                   <tr key={application.id}>
-                    <td>{application.job_title}</td>
-                    <td className="muted">{application.company_name}</td>
-                    <td><strong className="score-text">{application.ai_match_score}%</strong></td>
-                    <td>
-                      <span className={`status-badge ${statusTone[application.pipeline_status]}`}>
-                        {PIPELINE_STATUS_LABELS[application.pipeline_status] || application.pipeline_status}
-                      </span>
-                    </td>
-                    <td className="muted">{application.applied_at}</td>
+                    <td>{application.job_title || `Tin tuyển dụng ${application.job_id}`}</td>
+                    <td className="muted">{application.company_name || '—'}</td>
+                    <td><strong className="score-text">{application.ai_match_score == null ? '—' : `${application.ai_match_score}%`}</strong></td>
+                    <td><span className={`status-badge ${statusTone[application.pipeline_status] || ''}`}>
+                      {PIPELINE_STATUS_LABELS[application.pipeline_status] || application.pipeline_status}
+                    </span></td>
+                    <td className="muted">{application.applied_at ? new Date(application.applied_at).toLocaleDateString('vi-VN') : '—'}</td>
                     <td><Link className="inline-link" to={`/candidate/applications/${application.id}`}>Chi tiết</Link></td>
                   </tr>
                 ))}

@@ -1,5 +1,7 @@
 """UC-C3: lưu file CV PDF của ứng viên và nhờ AI Service gợi ý kỹ năng."""
 import asyncio
+import logging
+import math
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +24,7 @@ from app.services.cv_utils import (
 
 AI_PARSE_PATH = "/api/v1/ai/parse-cv"   # API AI Service cần cung cấp (UC-AI1)
 _CHUNK = 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 async def read_limited(file: UploadFile, max_bytes: int) -> bytes:
@@ -48,23 +51,42 @@ def _url_to_path(user_id, cv_url: Optional[str]) -> Optional[Path]:
     return path
 
 
-async def _extract_with_ai(filename: str, data: bytes) -> CVExtraction:
-    """Gọi AI Service; lỗi gì cũng không làm hỏng việc upload."""
+async def _extract_with_ai(user: User, filename: str, data: bytes) -> CVExtraction:
+    """Gọi AI Service; lỗi AI không làm hỏng việc upload CV."""
     if not settings.AI_URL:
-        return CVExtraction(status="SKIPPED", message="Chưa cấu hình AI_URL nên bỏ qua bước phân tích CV")
+        return CVExtraction(status="FAILED", message="Chưa cấu hình AI_URL nên chưa thể phân tích CV")
     url = settings.AI_URL.rstrip("/") + AI_PARSE_PATH
     try:
         async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
             resp = await client.post(url, files={"file": (filename, data, "application/pdf")})
         resp.raise_for_status()
-        names = parse_ai_skill_names(resp.json())
-    except Exception:
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            raise ValueError("AI response is not a JSON object")
+        if not isinstance(payload.get("parsed_text"), str):
+            raise ValueError("AI response has no valid parsed_text")
+        names = parse_ai_skill_names(payload)
+        raw_embedding = payload.get("embedding_vector")
+        if (
+            not isinstance(raw_embedding, list)
+            or any(
+                not isinstance(value, (int, float)) or not math.isfinite(value)
+                for value in raw_embedding
+            )
+        ):
+            raise ValueError("AI response has no valid embedding_vector")
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("CV AI extraction failed (%s): %s", url, exc)
         return CVExtraction(status="FAILED", message="Không phân tích được CV lúc này, bạn có thể nhập kỹ năng thủ công")
 
     skills = await SkillsTaxonomy.find_all().to_list()
     matched = match_skill_names(
         names, [{"id": s.id, "name": s.name, "aliases": s.aliases} for s in skills]
     )
+    if user.profile is not None:
+        user.profile.candidate_embedding = [float(value) for value in raw_embedding]
+        user.updated_at = datetime.utcnow()
+        await user.save()
     return CVExtraction(
         status="DONE",
         suggested_skills=[SuggestedSkill(id=m["id"], name=m["name"]) for m in matched],
@@ -103,6 +125,6 @@ async def upload_cv(user: User, file: UploadFile) -> CVUploadResponse:
     # 3. Xóa CV cũ (nếu có), rồi nhờ AI gợi ý kỹ năng
     if old_path is not None:
         old_path.unlink(missing_ok=True)
-    extraction = await _extract_with_ai(filename, data)
+    extraction = await _extract_with_ai(user, filename, data)
 
     return CVUploadResponse(cv_url=new_url, filename=filename, size=len(data), extraction=extraction)

@@ -14,8 +14,12 @@ export default function Dashboard() {
         <div className="card-header">
           <div>
             <h2 className="section-title">Trung tâm quản trị</h2>
-            <p className="muted small">Các khu vực quản lý hiện có trong nền tảng.</p>
+            <p className="muted small">Các khu vực quản lý cần API quản trị được xác minh trước khi hiển thị dữ liệu hoặc cho phép thao tác.</p>
           </div>
+        </div>
+        <div className="api-unavailable" role="status">
+          <strong>CHƯA XÁC MINH API quản trị</strong>
+          <span>Không có số liệu mẫu hoặc thao tác quản trị giả được hiển thị.</span>
         </div>
         <div className="admin-module-grid">
           {MODULES.map((module) => (
@@ -24,7 +28,7 @@ export default function Dashboard() {
               <div>
                 <h3>{module.title}</h3>
                 <p>{module.description}</p>
-                <span className="muted small">Chưa có dữ liệu quản trị được kết nối.</span>
+                <span className="badge badge-amber">CHƯA XÁC MINH API</span>
               </div>
             </article>
           ))}

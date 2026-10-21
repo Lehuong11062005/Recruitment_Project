@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
 
 export default function Chat() {
   const { conversationId } = useParams();
-  const [message, setMessage] = useState('');
 
   return (
     <section className="card message-shell full-chat chat-page">
@@ -18,30 +16,30 @@ export default function Chat() {
         </div>
         <div className="messages chat-placeholder">
           <Icon name="message" size={28} />
+          <span className="badge badge-amber">CHƯA XÁC MINH API</span>
           {conversationId ? (
             <>
-              <strong>Chưa có nội dung hội thoại</strong>
-              <p>Tin nhắn của cuộc hội thoại này sẽ hiển thị khi dữ liệu được tải từ hệ thống.</p>
+              <strong>Chưa thể tải hội thoại</strong>
+              <p>Core Service hiện chưa xác nhận API hội thoại và tin nhắn. Không có dữ liệu hội thoại nào được hiển thị.</p>
             </>
           ) : (
             <>
-              <strong>Chưa chọn cuộc hội thoại</strong>
-              <p>Cuộc hội thoại được mở từ thông tin ứng tuyển khi có dữ liệu tương ứng.</p>
+              <strong>Tính năng nhắn tin chưa khả dụng</strong>
+              <p>API hội thoại chưa được xác minh. Gửi tin nhắn sẽ không được bật cho tới khi backend hỗ trợ.</p>
               <Link to="/candidate/applications" className="inline-link">Xem đơn ứng tuyển</Link>
             </>
           )}
         </div>
-        <form className="composer" onSubmit={(event) => { event.preventDefault(); setMessage(''); }}>
+        <div className="composer">
           <input
             aria-label="Nội dung tin nhắn"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder="Nhập nội dung tin nhắn..."
+            disabled
+            placeholder="Nhắn tin chưa khả dụng"
           />
-          <button className="btn btn-primary" type="submit" disabled={!message.trim()}>
+          <button className="btn btn-primary" type="button" disabled>
             <Icon name="send" size={16} /> Gửi
           </button>
-        </form>
+        </div>
       </div>
     </section>
   );

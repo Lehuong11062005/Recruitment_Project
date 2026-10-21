@@ -17,6 +17,9 @@ function normalizeJob(job, isDemo = false) {
     id: String(job.id ?? job._id ?? job.job_id ?? ''),
     title: job.title || 'Tin tuyển dụng chưa có tiêu đề',
     company_name: job.company_name || job.company?.name || job.company?.company_name || '',
+    required_skills: Array.isArray(job.required_skill_names) && job.required_skill_names.length
+      ? job.required_skill_names
+      : job.required_skills,
     location: job.location || 'Chưa cập nhật địa điểm',
     isDemo: Boolean(job.isDemo || isDemo),
   };
@@ -48,10 +51,12 @@ function displaySkill(skill) {
 export default function JobDetail() {
   const { jobId } = useParams();
   const [job, setJob] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [demoNotice, setDemoNotice] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyError, setApplyError] = useState('');
   const [applyMessage, setApplyMessage] = useState('');
@@ -68,20 +73,26 @@ export default function JobDetail() {
       setJob(null);
       setLoadError('');
       setDemoNotice('');
+      setApiUnavailable(false);
 
-      if (CANDIDATE_DEMO_MODE || !jobService.isDetailConfigured()) {
+      if (CANDIDATE_DEMO_MODE) {
         const sample = DEMO_JOBS.find((item) => String(item.id) === String(jobId));
         if (sample) {
           setJob(normalizeJob(sample, true));
-          setDemoNotice(CANDIDATE_DEMO_MODE
-            ? 'Chế độ demo đang bật. Các thao tác mô phỏng không gửi/lưu dữ liệu lên backend.'
-            : 'Router Jobs chưa có xử lý ở nhánh main hiện tại. Đây là tin mẫu; không thể gửi đơn thật cho tin demo này.');
+          setApiUnavailable(false);
+          setDemoNotice('DỮ LIỆU DEMO: các thao tác minh họa không gửi hoặc lưu dữ liệu lên backend.');
         } else {
-          setLoadError('Không có chi tiết thật cho mã tin này. API Jobs chưa sẵn sàng; hãy quay lại danh sách tin mẫu.');
+          setLoadError('Không tìm thấy tin tuyển dụng trong bộ dữ liệu demo.');
         }
         setLoading(false);
         return;
       }
+      if (!jobService.isDetailConfigured()) {
+        setApiUnavailable(true);
+        setLoading(false);
+        return;
+      }
+      setApiUnavailable(false);
 
       try {
         const response = await jobService.getJobDetail(jobId);
@@ -126,6 +137,7 @@ export default function JobDetail() {
 
     if (CANDIDATE_DEMO_MODE) {
       setApplyMessage('Đã mô phỏng thao tác ứng tuyển. Không có đơn nào được tạo trên server.');
+      setApplyModalOpen(false);
       return;
     }
     if (job.isDemo) {
@@ -140,6 +152,8 @@ export default function JobDetail() {
       const aiStatus = response?.ai_status ? ` AI: ${response.ai_status}.` : '';
       const score = response?.ai_match_score != null ? ` Điểm phù hợp: ${response.ai_match_score}%.` : '';
       setApplyMessage(`Backend đã nhận yêu cầu ứng tuyển thành công.${pipelineStatus}${aiStatus}${score}`);
+      setApplyModalOpen(false);
+      setSelectedFile(null);
     } catch (error) {
       setApplyError(errorText(error));
     } finally {
@@ -171,19 +185,7 @@ export default function JobDetail() {
 
     setAnalysisLoading(true);
     try {
-      const parsed = await aiMatchingService.parseCV(analysisFile);
-      const cvText = parsed?.parsed_text || '';
-      if (!cvText.trim()) throw new Error('AI parser không trả về parsed_text; không thể tiếp tục so khớp.');
-      const requiredSkills = Array.isArray(job.required_skills)
-        ? job.required_skills.filter((skill) => typeof skill === 'string' && !/^[a-f\d]{24}$/i.test(skill))
-        : [];
-      const result = await aiMatchingService.matchCVToJob({
-        cvText,
-        jdText: job.description || '',
-        candidateSkills: parsed.skills || parsed.extracted_skills || [],
-        requiredSkills,
-        jobExperienceRequired: Number(job.experience_required || 0),
-      });
+      const result = await aiMatchingService.previewJobCV(job.id, analysisFile);
       setAnalysisResult(result?.data ?? result);
     } catch (error) {
       setAnalysisError(errorText(error));
@@ -193,6 +195,7 @@ export default function JobDetail() {
   };
 
   if (loading) return <section className="card text-center text-slate-500">Đang tải chi tiết việc làm…</section>;
+  if (apiUnavailable) return <div className="content-stack"><Link className="inline-link" to="/candidate/jobs">← Quay lại danh sách việc làm</Link><section role="status" className="api-unavailable"><h2>API Jobs chưa khả dụng</h2><p>Chi tiết việc làm cần API Jobs đang được bật và cấu hình. Không hiển thị tin demo thay cho tin thật.</p></section></div>;
   if (loadError || !job) return <div className="content-stack"><Link className="inline-link" to="/candidate/jobs">← Quay lại danh sách việc làm</Link><section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-900"><h2 className="text-lg font-bold">Chưa thể hiển thị chi tiết việc làm</h2><p className="mt-2">{loadError || 'Không tìm thấy tin tuyển dụng.'}</p></section></div>;
 
   const requiredSkills = (Array.isArray(job.required_skills) ? job.required_skills : []).map(displaySkill).filter(Boolean);
@@ -207,7 +210,7 @@ export default function JobDetail() {
       <section className="card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0"><span className="badge badge-blue">UC-C5 · Chi tiết tin</span><h2 className="display-title">{job.title}</h2><p className="mt-1 font-semibold text-slate-600">{job.company_name || 'Nhà tuyển dụng chưa cập nhật'}</p><div className="mt-3 flex flex-wrap gap-2"><span className="badge badge-gray"><Icon name="map" size={13} />{job.location || 'Chưa cập nhật địa điểm'}</span>{job.level && <span className="badge badge-blue">{job.level}</span>}<span className="badge badge-green"><Icon name="wallet" size={13} />{formatSalary(job.salary)}</span></div></div>
-          {job.isDemo && <span className="badge badge-amber">Job mẫu</span>}
+          {job.isDemo && <span className="badge badge-amber">DỮ LIỆU DEMO</span>}
         </div>
         <div className="mt-6 border-t border-slate-100 pt-5"><h3 className="section-title">Mô tả công việc</h3><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{job.description || 'Chưa có mô tả công việc.'}</p></div>
         {requiredSkills.length > 0 && <div className="mt-5"><h3 className="section-title">Kỹ năng yêu cầu</h3><div className="mt-2 flex flex-wrap gap-2">{requiredSkills.map((skill) => <span key={skill} className="badge badge-gray">{skill}</span>)}</div></div>}
@@ -218,9 +221,10 @@ export default function JobDetail() {
         <section className="card">
           <div className="card-header"><div><span className="badge badge-blue">UC-C5</span><h3 className="section-title mt-2">Ứng tuyển vị trí này</h3><p className="muted small">Chọn CV PDF để gửi hồ sơ. Core Service giới hạn CV tối đa 5 MB.</p></div><span className="rounded-lg bg-blue-50 p-3 text-blue-700"><Icon name="upload" size={22} /></span></div>
           {applyMessage && <div className="alert-box alert-success mb-4" role="status">{applyMessage}</div>}
-          {applyError && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{applyError}</div>}
-          <form onSubmit={handleApply} className="space-y-4"><label className="block"><span className="mb-1 block text-sm font-semibold">CV ứng tuyển (PDF)</span><input type="file" accept=".pdf,application/pdf" onChange={(event) => changeFile(event, 'apply')} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />{selectedFile && <span className="muted mt-1 block text-xs">Đã chọn: {selectedFile.name}</span>}</label><button type="submit" disabled={applyLoading} className="btn btn-primary full-button disabled:opacity-50"><Icon name="send" size={15} />{applyLoading ? 'Đang gửi…' : CANDIDATE_DEMO_MODE ? 'Mô phỏng ứng tuyển' : 'Gửi hồ sơ ứng tuyển'}</button></form>
-          {job.isDemo && !CANDIDATE_DEMO_MODE && <p className="muted mt-3 text-xs">Do chưa có API Jobs, dữ liệu ID ở trang này là dữ liệu demo. Backend sẽ không nhận đơn thật cho job này.</p>}
+          <button type="button" onClick={() => { setApplyError(''); setApplyModalOpen(true); }} className="btn btn-primary full-button">
+            <Icon name="send" size={15} />Ứng tuyển ngay
+          </button>
+          {job.isDemo && <p className="muted mt-3 text-xs">Không thể gửi đơn thật cho tin demo này.</p>}
         </section>
 
         <section className="card">
@@ -237,6 +241,122 @@ export default function JobDetail() {
           </div>}
         </section>
       </div>
+      {applyModalOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !applyLoading) setApplyModalOpen(false);
+        }}>
+          <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="apply-dialog-title">
+            <div className="card-header">
+              <div>
+                <h2 className="section-title" id="apply-dialog-title">Ứng tuyển {job.title}</h2>
+                <p className="muted small">Tải lên CV PDF, dung lượng tối đa 5 MB.</p>
+              </div>
+              <button type="button" className="btn btn-secondary" onClick={() => setApplyModalOpen(false)} disabled={applyLoading}>Đóng</button>
+            </div>
+            {applyError && <div className="alert-box alert-error mb-4" role="alert">{applyError}</div>}
+            <form onSubmit={handleApply} className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-sm font-semibold">CV ứng tuyển (PDF)</span>
+                <input type="file" accept=".pdf,application/pdf" onChange={(event) => changeFile(event, 'apply')} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />
+                {selectedFile && <span className="muted mt-1 block text-xs">Đã chọn: {selectedFile.name}</span>}
+              </label>
+              <button type="submit" disabled={applyLoading} className="btn btn-primary full-button">
+                <Icon name="send" size={15} />{applyLoading ? 'Đang gửi…' : CANDIDATE_DEMO_MODE ? 'Mô phỏng ứng tuyển' : 'Gửi hồ sơ ứng tuyển'}
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function LiveJobDetail() {
+  const { jobId } = useParams();
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    jobService.getJobDetail(jobId)
+      .then((response) => {
+        if (active) setJob(response?.data || response);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || 'Không thể tải thông tin tin tuyển dụng.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [jobId]);
+
+  const handleApply = (event) => {
+    event.preventDefault();
+    setStatusMsg('Đã gửi yêu cầu ứng tuyển (UC-C5). Kết quả AI Matching sẽ được cập nhật.');
+  };
+
+  const salary = job?.salary
+    ? `${Number(job.salary.min || 0).toLocaleString('vi-VN')} - ${Number(job.salary.max || 0).toLocaleString('vi-VN')} ${job.salary.currency || 'VND'}`
+    : 'Thỏa thuận';
+
+  return (
+    <div className="content-stack">
+      <Link to="/candidate/jobs" className="inline-link">
+        <Icon name="chevron" size={16} className="back-chevron" /> Quay lại danh sách việc làm
+      </Link>
+      {error && <div className="alert-box alert-error" role="alert">{error}</div>}
+      {loading && <section className="card empty-state">Đang tải thông tin tin tuyển dụng...</section>}
+      {!loading && job && (
+        <>
+          <section className="card job-detail-hero">
+            <div className="company-logo company-logo-large logo-blue">{(job.company_name || 'DN').slice(0, 2).toUpperCase()}</div>
+            <div className="hero-job-copy">
+              <span className="badge badge-blue">Tin tuyển dụng</span>
+              <h2 className="display-title">{job.title}</h2>
+              <span>{job.company_name || 'Doanh nghiệp'}</span>
+            </div>
+          </section>
+          <div className="job-detail-grid">
+            <section className="card">
+              <div className="card-header">
+                <div><h3 className="section-title">Thông tin tuyển dụng</h3><p className="muted small">Thông tin vị trí tuyển dụng được cung cấp bởi nhà tuyển dụng.</p></div>
+              </div>
+              <div className="meta-row">
+                <span><Icon name="map" size={15} />{job.location || 'Chưa cập nhật'}</span>
+                <span><Icon name="briefcase" size={15} />{job.level || 'MID'}</span>
+                <span><Icon name="wallet" size={15} />{salary}</span>
+                <span><Icon name="clock" size={15} />Kinh nghiệm: {job.experience_required || 0} năm</span>
+              </div>
+              <h3 className="section-title">Mô tả công việc</h3>
+              <div className="job-description-content">{job.description}</div>
+              <h3 className="section-title">Kỹ năng yêu cầu</h3>
+              <p className="muted small">{Array.isArray(job.required_skill_names) && job.required_skill_names.length ? job.required_skill_names.join(', ') : 'Nhà tuyển dụng chưa chỉ định kỹ năng.'}</p>
+            </section>
+            <section className="card">
+              <div className="card-header">
+                <div><h3 className="section-title">Ứng tuyển vị trí này</h3><p className="muted small">Tải lên CV PDF để gửi hồ sơ ứng tuyển.</p></div>
+              </div>
+              {statusMsg && <div className="alert-box alert-success" role="status">{statusMsg}</div>}
+              <form onSubmit={handleApply}>
+                <div className="form-group">
+                  <label htmlFor="live-application-cv" className="form-label">Chọn CV (PDF)</label>
+                  <input id="live-application-cv" type="file" accept=".pdf,application/pdf" onChange={(event) => setSelectedFile(event.target.files?.[0] || null)} className="form-input" />
+                  {selectedFile && <p className="field-hint">{selectedFile.name}</p>}
+                  <p className="field-hint">Chỉ chấp nhận tệp PDF, tối đa 5 MB.</p>
+                </div>
+                <button type="submit" className="btn btn-primary full-button"><Icon name="send" size={16} /> Gửi hồ sơ ứng tuyển</button>
+              </form>
+            </section>
+          </div>
+        </>
+      )}
+      {!loading && !job && !error && <section className="card empty-state"><strong>Không tìm thấy tin tuyển dụng</strong><p>Tin này không còn mở hoặc đã được gỡ khỏi hệ thống.</p></section>}
     </div>
   );
 }

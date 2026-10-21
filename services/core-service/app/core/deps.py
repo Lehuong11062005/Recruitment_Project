@@ -40,3 +40,12 @@ async def get_current_candidate(user: User = Depends(get_current_user)) -> User:
             detail="Chỉ ứng viên (CANDIDATE) mới dùng được chức năng này",
         )
     return user
+
+
+async def get_current_recruiter(user: User = Depends(get_current_user)) -> User:
+    if user.user_type != "RECRUITER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ nhà tuyển dụng (RECRUITER) mới dùng được chức năng này",
+        )
+    return user

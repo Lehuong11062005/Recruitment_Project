@@ -29,4 +29,4 @@ async def init_db():
             Message
         ]
     )
-    print("Core Service: Kết nối MongoDB và sync indexes thành công (kèm Chat)!")
+    print("Core Service: MongoDB connected; Beanie indexes synchronized.")

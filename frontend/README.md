@@ -86,11 +86,15 @@ Vai trò trong giao diện: `ADMIN` nếu `role = ADMIN`, ngược lại lấy `
 | `/candidate/applications`, `/candidate/applications/:applicationId` | Đơn ứng tuyển, chi tiết + lịch sử trạng thái | UC-C7 |
 | `/candidate/messages`, `/candidate/messages/:conversationId` | Tin nhắn | UC-C8 |
 | `/recruiter`, `/admin` | Trang chủ Recruiter, Admin | |
+| `/recruiter/manage-jobs` | Tạo và theo dõi JD của nhà tuyển dụng | |
+| `/recruiter/company-profile` | Cập nhật hồ sơ doanh nghiệp và trạng thái duyệt mềm | |
 | `/403`, `*` | Không có quyền, không tìm thấy | |
 
 ## Lưu ý về API
 
 `authService` dùng endpoint **thật** của core-service (`/api/v1/auth/...`). Các service `jobService`, `applicationService`, `chatService` là **giả định** vì router tương ứng của core-service còn trống; khi backend xong thì đối chiếu và sửa lại đường dẫn/tham số.
+
+`recruiterService` dùng các endpoint công ty, kỹ năng và tin tuyển dụng của core-service. Router hiện chưa có endpoint liệt kê JD theo recruiter, nên bảng quản lý chỉ hiển thị các JD vừa tạo trong phiên hiện tại cho tới khi API danh sách được bổ sung.
 
 ## Quy ước làm việc nhóm
 
