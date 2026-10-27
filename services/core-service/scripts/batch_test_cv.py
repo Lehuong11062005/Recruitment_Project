@@ -31,7 +31,7 @@ def garbled_ratio(text: str) -> float:
 
 async def login(client: httpx.AsyncClient, idx: int) -> str:
     """Mỗi CV một tài khoản ứng viên riêng (bảng applications unique theo job + candidate)."""
-    email = f"cvtest_{idx:02d}@test.local"
+    email = f"cvtest_{idx:02d}@example.com"
     await client.post(f"{CORE}/api/v1/auth/register", json={
         "email": email, "password": PASSWORD,
         "full_name": f"CV Test {idx:02d}", "user_type": "CANDIDATE",
@@ -110,6 +110,8 @@ async def test_one(client: httpx.AsyncClient, idx: int, pdf: Path, job_id: str, 
             flags.append("ALREADY_APPLIED(chay lai: dung job khac hoac xoa user cvtest_*)")
         else:
             flags.append(f"APPLY_{r.status_code}")
+    except httpx.HTTPStatusError as e:
+        flags.append(f"CORE_{e.request.url.path}_{e.response.status_code}:{e.response.text[:80]}")
     except httpx.HTTPError as e:
         flags.append(f"CORE_EXC:{type(e).__name__}")
 
