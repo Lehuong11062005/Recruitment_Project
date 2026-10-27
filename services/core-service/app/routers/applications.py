@@ -3,10 +3,11 @@ from typing import List, Optional
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
-from app.core.deps import get_current_candidate
+from app.core.deps import get_current_candidate, get_current_user
 from app.models.user import User
-from app.schemas.application import ApplicationResponse
+from app.schemas.application import ApplicationDetailResponse, ApplicationResponse
 from app.services import application_service
 from app.services.cv_utils import CVError
 
@@ -18,17 +19,39 @@ async def list_my_applications(user: User = Depends(get_current_candidate)):
     return await application_service.list_candidate_applications(user)
 
 
-@router.get("/{application_id}", response_model=ApplicationResponse, summary="Chi tiết đơn ứng tuyển")
-async def get_my_application(
+@router.get("/{application_id}/cv", summary="Xem trước CV PDF gốc của đơn ứng tuyển (Task 8.3)",
+            response_class=FileResponse)
+async def preview_application_cv(application_id: str, user: User = Depends(get_current_user)):
+    """Stream PDF (inline). Chỉ ứng viên chủ đơn hoặc HR của công ty đăng tin mới xem được."""
+    try:
+        oid = PydanticObjectId(application_id)
+    except Exception:
+        raise HTTPException(422, "application_id không hợp lệ")
+    try:
+        path = await application_service.get_cv_file_path(user, oid)
+    except CVError as exc:
+        raise HTTPException(exc.status_code, exc.message)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        content_disposition_type="inline",
+        filename=f"cv_{application_id}.pdf",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=0"},
+    )
+
+
+@router.get("/{application_id}", response_model=ApplicationDetailResponse,
+            summary="Chi tiết đơn ứng tuyển (ứng viên chủ đơn hoặc HR nhận đơn)")
+async def get_application_detail(
     application_id: str,
-    user: User = Depends(get_current_candidate),
+    user: User = Depends(get_current_user),
 ):
     try:
         oid = PydanticObjectId(application_id)
     except Exception:
         raise HTTPException(422, "application_id không hợp lệ")
     try:
-        return await application_service.get_candidate_application(user, oid)
+        return await application_service.get_application_detail(user, oid)
     except CVError as exc:
         raise HTTPException(exc.status_code, exc.message)
 

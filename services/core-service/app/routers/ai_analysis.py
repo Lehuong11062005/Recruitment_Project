@@ -33,7 +33,7 @@ class AIPreviewResponse(BaseModel):
 
 def _taxonomy_data(skills: list[SkillsTaxonomy]) -> tuple[list[dict], dict]:
     taxonomy = [
-        {"id": skill.id, "name": skill.name, "aliases": skill.aliases}
+        {"id": skill.id, "name": skill.name, "aliases": skill.aliases, "category": skill.category}
         for skill in skills
     ]
     id_to_name = {skill.id: skill.name for skill in skills}
@@ -114,7 +114,7 @@ async def preview_ai_matching(
     analysis = _map_analysis(result, taxonomy)
     return AIPreviewResponse(
         parsed_text=parsed["parsed_text"],
-        skills=[SkillRef(id=item["id"], name=item["name"]) for item in candidate_skills],
+        skills=[SkillRef(id=item["id"], name=item["name"], category=item.get("category")) for item in candidate_skills],
         ai_match_score=float(result["ai_match_score"]),
         matching_version=result["matching_version"],
         embedding_vector=[
@@ -122,8 +122,8 @@ async def preview_ai_matching(
             for value in result.get("embedding_vector", parsed["embedding_vector"])
         ],
         ai_analysis=AIAnalysisResponse(
-            matched=[SkillRef(id=item, name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.matched],
-            missing=[SkillRef(id=item, name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.missing],
+            matched=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.matched],
+            missing=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.missing],
             score_breakdown=analysis.score_breakdown,
             recommendation=analysis.recommendation,
         ),

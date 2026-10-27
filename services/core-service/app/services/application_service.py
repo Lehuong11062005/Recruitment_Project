@@ -8,6 +8,7 @@ import asyncio
 import logging
 import math
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -22,9 +23,16 @@ from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
-from app.schemas.application import AIAnalysisResponse, ApplicationResponse, SkillRef
+from app.schemas.application import (
+    AIAnalysisResponse,
+    ApplicationDetailResponse,
+    ApplicationResponse,
+    CandidateBrief,
+    SkillRef,
+    StatusHistoryItem,
+)
 from app.services.cv_service import _url_to_path, read_limited
-from app.services.cv_utils import CVError, match_skill_names, validate_pdf
+from app.services.cv_utils import CVError, map_skill_names, validate_pdf
 
 AI_PARSE_PATH = "/api/v1/ai/parse-cv"
 AI_MATCH_PATH = "/api/v1/ai/match"
@@ -167,13 +175,30 @@ async def _resolve_cv(user: User, file: Optional[UploadFile]) -> tuple:
     return data, filename, path, url
 
 
-def _to_response(app: Application, ai_status: str, id_to_name: Dict[Any, str]) -> ApplicationResponse:
+def _skill_maps(skills) -> tuple:
+    """id -> {name, category} (để dựng SkillRef) và danh sách taxonomy (để quy đổi tên -> id)."""
+    id_to_skill = {x.id: {"name": x.name, "category": x.category} for x in skills}
+    taxonomy = [
+        {"id": x.id, "name": x.name, "aliases": x.aliases, "category": x.category}
+        for x in skills
+    ]
+    return id_to_skill, taxonomy
+
+
+def _skill_ref(skill_id, id_to_skill: Dict[Any, Dict[str, Any]]) -> SkillRef:
+    info = id_to_skill.get(skill_id) or {}
+    return SkillRef(id=skill_id, name=info.get("name", ""), category=info.get("category"))
+
+
+def _to_response(
+    app: Application, ai_status: str, id_to_skill: Dict[Any, Dict[str, Any]]
+) -> ApplicationResponse:
     analysis = None
     if app.ai_analysis is not None:
         a = app.ai_analysis
         analysis = AIAnalysisResponse(
-            matched=[SkillRef(id=i, name=id_to_name.get(i, "")) for i in a.matched],
-            missing=[SkillRef(id=i, name=id_to_name.get(i, "")) for i in a.missing],
+            matched=[_skill_ref(i, id_to_skill) for i in a.matched],
+            missing=[_skill_ref(i, id_to_skill) for i in a.missing],
             score_breakdown=a.score_breakdown,
             recommendation=a.recommendation,
         )
@@ -189,11 +214,11 @@ def _to_response(app: Application, ai_status: str, id_to_name: Dict[Any, str]) -
 
 async def _application_response(app: Application) -> ApplicationResponse:
     skills = await SkillsTaxonomy.find_all().to_list()
-    id_to_name = {skill.id: skill.name for skill in skills}
+    id_to_skill, _ = _skill_maps(skills)
     response = _to_response(
         app,
         "DONE" if app.ai_match_score is not None else "FAILED",
-        id_to_name,
+        id_to_skill,
     )
     job = await JobPosting.get(app.job_id)
     if job is not None:
@@ -220,6 +245,73 @@ async def get_candidate_application(
     return await _application_response(app)
 
 
+async def _get_authorized_application(
+    user: User, application_id: PydanticObjectId
+) -> Application:
+    """Chỉ ứng viên chủ đơn, hoặc nhà tuyển dụng cùng công ty với tin tuyển dụng, được xem.
+
+    Mọi trường hợp không đủ quyền đều trả 404 (không lộ việc đơn có tồn tại hay không).
+    """
+    not_found = CVError(404, "Không tìm thấy hồ sơ ứng tuyển")
+    app = await Application.get(application_id)
+    if app is None:
+        raise not_found
+    if user.user_type == "CANDIDATE":
+        if app.candidate_id != user.id:
+            raise not_found
+    elif user.user_type == "RECRUITER":
+        job = await JobPosting.get(app.job_id)
+        if job is None or user.company_id is None or job.company_id != user.company_id:
+            raise not_found
+    else:
+        raise not_found
+    return app
+
+
+async def get_cv_file_path(user: User, application_id: PydanticObjectId) -> Path:
+    """Task 8.3: đường dẫn file PDF gốc của đơn sau khi kiểm tra quyền."""
+    app = await _get_authorized_application(user, application_id)
+    path = _url_to_path(app.candidate_id, app.cv_url)   # đã chặn path traversal
+    if path is None or not path.exists():
+        raise CVError(404, "Không tìm thấy file CV")
+    return path
+
+
+async def get_application_detail(
+    user: User, application_id: PydanticObjectId
+) -> ApplicationDetailResponse:
+    """GET /applications/{id}: dùng chung cho ứng viên chủ đơn và HR nhận đơn."""
+    app = await _get_authorized_application(user, application_id)
+    base = await _application_response(app)
+
+    candidate = await User.get(app.candidate_id)
+    if candidate is None:
+        raise CVError(404, "Không tìm thấy hồ sơ ứng viên")
+    skills = await SkillsTaxonomy.find_all().to_list()
+    id_to_skill, _ = _skill_maps(skills)
+    profile = candidate.profile
+    brief = CandidateBrief(
+        id=candidate.id,
+        full_name=candidate.full_name,
+        email=candidate.email,
+        phone=candidate.phone or (profile.phone if profile else None),
+        summary=profile.summary if profile else None,
+        location=profile.location if profile else None,
+        skills=[_skill_ref(i, id_to_skill) for i in (profile.skills if profile else [])],
+        experience=profile.experience if profile else [],
+        education=profile.education if profile else [],
+    )
+    is_hr = user.user_type == "RECRUITER"
+    return ApplicationDetailResponse(
+        **base.model_dump(),
+        candidate=brief,
+        cv_preview_url=f"/api/v1/applications/{app.id}/cv",
+        cv_parsed_text=app.parsed_text,
+        recruiter_note=app.recruiter_note if is_hr else None,
+        status_history=[StatusHistoryItem(status=h.status, time=h.time) for h in app.status_history],
+    )
+
+
 # ---------- nghiệp vụ chính ----------
 async def apply_job(
     user: User,
@@ -237,8 +329,8 @@ async def apply_job(
 
     # Từ điển kỹ năng: đổi tên kỹ năng AI trả về <-> _id trong skills_taxonomy
     skills = await SkillsTaxonomy.find_all().to_list()
-    taxonomy = [{"id": s.id, "name": s.name, "aliases": s.aliases} for s in skills]
-    id_to_name = {s.id: s.name for s in skills}
+    id_to_skill, taxonomy = _skill_maps(skills)
+    id_to_name = {i: v["name"] for i, v in id_to_skill.items()}
     required_ids = list(dict.fromkeys(job.required_skills))
     required_names = [id_to_name[i] for i in required_ids if i in id_to_name]
     if submitted_required_names is not None and {
@@ -272,12 +364,16 @@ async def apply_job(
                 embedding = [float(value) for value in match_embedding]
 
             ai_analysis = ai["ai_analysis"]
-            matched_ids = [
-                item["id"] for item in match_skill_names(ai_analysis["matched"], taxonomy)
-            ]
-            missing_ids = [
-                item["id"] for item in match_skill_names(ai_analysis["missing"], taxonomy)
-            ]
+            matched, unmapped_m = map_skill_names(ai_analysis["matched"], taxonomy)
+            missing, unmapped_x = map_skill_names(ai_analysis["missing"], taxonomy)
+            if unmapped_m or unmapped_x:
+                # gợi ý bổ sung alias vào skill_taxonomy.json
+                logger.warning(
+                    "Skill AI trả về nhưng không có trong taxonomy: %s", unmapped_m + unmapped_x
+                )
+            matched_ids = [m["id"] for m in matched]
+            matched_set = set(matched_ids)
+            missing_ids = [m["id"] for m in missing if m["id"] not in matched_set]
             analysis = AIAnalysis(
                 matched=matched_ids,
                 missing=missing_ids,
@@ -306,4 +402,4 @@ async def apply_job(
         raise
 
     await job.update({"$inc": {"applications_count": 1}})
-    return _to_response(app, ai_status, id_to_name)
+    return _to_response(app, ai_status, id_to_skill)
