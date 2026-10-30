@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from beanie import PydanticObjectId
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class SkillRef(BaseModel):
     id: PydanticObjectId
     name: str
+    category: Optional[str] = None
 
 
 class AIAnalysisResponse(BaseModel):
@@ -31,3 +32,30 @@ class ApplicationResponse(BaseModel):
     applied_at: datetime
     job_title: Optional[str] = None
     company_name: Optional[str] = None
+
+
+class CandidateBrief(BaseModel):
+    """Thông tin ứng viên hiển thị ở màn hình chi tiết của HR."""
+    id: PydanticObjectId
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+    summary: Optional[str] = None
+    location: Optional[str] = None
+    skills: List[SkillRef] = []
+    experience: List[Dict[str, Any]] = []
+    education: List[Dict[str, Any]] = []
+
+
+class StatusHistoryItem(BaseModel):
+    status: str
+    time: datetime
+
+
+class ApplicationDetailResponse(ApplicationResponse):
+    """GET /applications/{id}: ApplicationResponse + hồ sơ ứng viên + văn bản CV đầy đủ."""
+    candidate: CandidateBrief
+    cv_preview_url: str                      # /api/v1/applications/{id}/cv (stream PDF có phân quyền)
+    cv_parsed_text: Optional[str] = None
+    recruiter_note: Optional[str] = None     # chỉ HR mới thấy
+    status_history: List[StatusHistoryItem] = []

@@ -2,7 +2,10 @@
   {
     "skill": "Python",
     "group": "Ngôn ngữ lập trình",
-    "aliases": []
+    "aliases": [
+      "Python3",
+      "Python 3"
+    ]
   },
   {
     "skill": "Java",
@@ -14,23 +17,32 @@
     "group": "Ngôn ngữ lập trình",
     "aliases": [
       "JS",
-      "Javascript"
+      "Javascript",
+      "ES6",
+      "ECMAScript"
     ]
   },
   {
     "skill": "TypeScript",
     "group": "Ngôn ngữ lập trình",
-    "aliases": []
+    "aliases": [
+      "TS"
+    ]
   },
   {
     "skill": "C#",
     "group": "Ngôn ngữ lập trình",
-    "aliases": []
+    "aliases": [
+      "CSharp",
+      "C Sharp"
+    ]
   },
   {
     "skill": "C++",
     "group": "Ngôn ngữ lập trình",
-    "aliases": []
+    "aliases": [
+      "CPP"
+    ]
   },
   {
     "skill": "C",
@@ -40,7 +52,9 @@
   {
     "skill": "Go",
     "group": "Ngôn ngữ lập trình",
-    "aliases": []
+    "aliases": [
+      "Golang"
+    ]
   },
   {
     "skill": "PHP",
@@ -122,7 +136,8 @@
     "skill": "Next.js",
     "group": "Frontend",
     "aliases": [
-      "NextJS"
+      "NextJS",
+      "Next JS"
     ]
   },
   {
@@ -139,7 +154,8 @@
     "skill": "Tailwind CSS",
     "group": "Frontend",
     "aliases": [
-      "Tailwind"
+      "Tailwind",
+      "TailwindCSS"
     ]
   },
   {
@@ -155,7 +171,10 @@
   {
     "skill": "SASS/SCSS",
     "group": "Frontend",
-    "aliases": []
+    "aliases": [
+      "SASS",
+      "SCSS"
+    ]
   },
   {
     "skill": "Webpack",
@@ -170,14 +189,17 @@
   {
     "skill": "React Native",
     "group": "Frontend",
-    "aliases": []
+    "aliases": [
+      "ReactNative"
+    ]
   },
   {
     "skill": "Node.js",
     "group": "Backend và framework",
     "aliases": [
       "NodeJS",
-      "Nodejs"
+      "Nodejs",
+      "Node JS"
     ]
   },
   {
@@ -191,13 +213,16 @@
   {
     "skill": "NestJS",
     "group": "Backend và framework",
-    "aliases": []
+    "aliases": [
+      "Nest.js"
+    ]
   },
   {
     "skill": "Spring Boot",
     "group": "Backend và framework",
     "aliases": [
-      "Spring"
+      "Spring",
+      "SpringBoot"
     ]
   },
   {
@@ -220,13 +245,17 @@
     "group": "Backend và framework",
     "aliases": [
       ".NET",
-      "ASP.NET Core"
+      "ASP.NET Core",
+      "dotnet"
     ]
   },
   {
     "skill": "ASP.NET",
     "group": "Backend và framework",
-    "aliases": []
+    "aliases": [
+      "ASP.NET MVC",
+      "ASP.NET Core"
+    ]
   },
   {
     "skill": "Laravel",
@@ -248,7 +277,9 @@
     "group": "Backend và framework",
     "aliases": [
       "RESTful API",
-      "RESTful"
+      "RESTful",
+      "REST APIs",
+      "RESTful APIs"
     ]
   },
   {
@@ -259,7 +290,9 @@
   {
     "skill": "Microservices",
     "group": "Backend và framework",
-    "aliases": []
+    "aliases": [
+      "Microservice"
+    ]
   },
   {
     "skill": "SQL",
@@ -275,7 +308,8 @@
     "skill": "PostgreSQL",
     "group": "Cơ sở dữ liệu",
     "aliases": [
-      "Postgres"
+      "Postgres",
+      "Postgre SQL"
     ]
   },
   {
@@ -283,7 +317,9 @@
     "group": "Cơ sở dữ liệu",
     "aliases": [
       "MS SQL Server",
-      "MSSQL"
+      "MSSQL",
+      "MS SQL",
+      "Microsoft SQL Server"
     ]
   },
   {
@@ -331,7 +367,9 @@
   {
     "skill": "AWS",
     "group": "Cloud và DevOps",
-    "aliases": []
+    "aliases": [
+      "Amazon Web Services"
+    ]
   },
   {
     "skill": "Azure",
@@ -367,7 +405,8 @@
     "skill": "GitLab CI/CD",
     "group": "Cloud và DevOps",
     "aliases": [
-      "GitLab CI"
+      "GitLab CI",
+      "CI/CD"
     ]
   },
   {
@@ -413,21 +452,26 @@
   {
     "skill": "ELK Stack",
     "group": "Cloud và DevOps",
-    "aliases": []
+    "aliases": [
+      "ELK",
+      "Elastic Stack"
+    ]
   },
   {
     "skill": "Machine Learning",
     "group": "AI, Data, ML",
     "aliases": [
       "ML",
-      "học máy"
+      "học máy",
+      "Máy học"
     ]
   },
   {
     "skill": "Deep Learning",
     "group": "AI, Data, ML",
     "aliases": [
-      "học sâu"
+      "học sâu",
+      "DL"
     ]
   },
   {
@@ -441,7 +485,9 @@
   {
     "skill": "Computer Vision",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Thị giác máy tính"
+    ]
   },
   {
     "skill": "TensorFlow",
@@ -456,7 +502,10 @@
   {
     "skill": "Scikit-learn",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "sklearn",
+      "scikit learn"
+    ]
   },
   {
     "skill": "Pandas",
@@ -476,7 +525,9 @@
   {
     "skill": "Hugging Face",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "HuggingFace"
+    ]
   },
   {
     "skill": "LangChain",
@@ -486,12 +537,18 @@
   {
     "skill": "LLM",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Large Language Model",
+      "Large Language Models"
+    ]
   },
   {
     "skill": "Spark",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Apache Spark",
+      "PySpark"
+    ]
   },
   {
     "skill": "Hadoop",
@@ -501,12 +558,16 @@
   {
     "skill": "Kafka",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Apache Kafka"
+    ]
   },
   {
     "skill": "Airflow",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Apache Airflow"
+    ]
   },
   {
     "skill": "ETL",
@@ -528,18 +589,25 @@
   {
     "skill": "Excel",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "Microsoft Excel",
+      "MS Excel"
+    ]
   },
   {
     "skill": "Data Warehouse",
     "group": "AI, Data, ML",
-    "aliases": []
+    "aliases": [
+      "DWH",
+      "Kho dữ liệu"
+    ]
   },
   {
     "skill": "Manual Testing",
     "group": "Kiểm thử và QA",
     "aliases": [
-      "kiểm thử thủ công"
+      "kiểm thử thủ công",
+      "Manual Test"
     ]
   },
   {
@@ -547,7 +615,9 @@
     "group": "Kiểm thử và QA",
     "aliases": [
       "Test Automation",
-      "kiểm thử tự động"
+      "kiểm thử tự động",
+      "Automation Test",
+      "Automated Testing"
     ]
   },
   {
@@ -584,7 +654,8 @@
     "skill": "Test Case",
     "group": "Kiểm thử và QA",
     "aliases": [
-      "Testcase"
+      "Testcase",
+      "Test Cases"
     ]
   },
   {
@@ -637,14 +708,17 @@
     "group": "Bảo mật và mạng",
     "aliases": [
       "An toàn thông tin",
-      "Security"
+      "Security",
+      "Cyber Security",
+      "An ninh mạng"
     ]
   },
   {
     "skill": "Penetration Testing",
     "group": "Bảo mật và mạng",
     "aliases": [
-      "Pentest"
+      "Pentest",
+      "Pen Test"
     ]
   },
   {
@@ -726,12 +800,16 @@
   {
     "skill": "Photoshop",
     "group": "Marketing, Sales, Thiết kế",
-    "aliases": []
+    "aliases": [
+      "Adobe Photoshop"
+    ]
   },
   {
     "skill": "Illustrator",
     "group": "Marketing, Sales, Thiết kế",
-    "aliases": []
+    "aliases": [
+      "Adobe Illustrator"
+    ]
   },
   {
     "skill": "Figma",

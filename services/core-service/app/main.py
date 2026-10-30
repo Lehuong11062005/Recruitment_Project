@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.database import init_db
-from app.core.storage import mount_uploads
+from app.core.storage import ensure_upload_dirs
 from app.routers import auth, users, skills, applications, companies, jobs, ai_analysis
 
 @asynccontextmanager
@@ -24,7 +24,8 @@ app.include_router(applications.router, prefix="/api/v1/applications", tags=["Ap
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["Company Profile"])
 app.include_router(ai_analysis.router, prefix="/api/v1/ai-analysis", tags=["AI Analysis"])
 
-mount_uploads(app)  # phục vụ file CV đã upload tại /uploads
+# Không mount /uploads công khai nữa: CV chỉ xem qua GET /api/v1/applications/{id}/cv (có phân quyền)
+ensure_upload_dirs()
 
 @app.get("/health", tags=["System"])
 async def health_check():

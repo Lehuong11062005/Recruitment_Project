@@ -1,5 +1,7 @@
 """Hàm thuần (không đụng DB, không đụng mạng) phục vụ UC-C3 - dễ kiểm thử riêng."""
-from typing import Any, Dict, Iterable, List
+import re
+import unicodedata
+from typing import Any, Dict, Iterable, List, Tuple
 
 PDF_MAGIC = b"%PDF-"
 
@@ -46,23 +48,54 @@ def parse_ai_skill_names(payload: Any) -> List[str]:
     return names
 
 
-def match_skill_names(names: Iterable[str], skills: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Ghép tên kỹ năng AI đọc được với skills_taxonomy (theo name hoặc aliases, không phân biệt hoa thường).
+def _norm(name: str) -> str:
+    """NFKC + casefold + gộp khoảng trắng."""
+    s = unicodedata.normalize("NFKC", name or "").casefold().strip()
+    return re.sub(r"\s+", " ", s)
 
-    skills: [{"id": ..., "name": str, "aliases": [str]}]. Trả về [{"id", "name"}], không trùng.
+
+def _compact(name: str) -> str:
+    """Bỏ dấu cách . - _ / để 'React.js' / 'react js' / 'React-JS' đều thành 'reactjs'."""
+    return re.sub(r"[\s.\-_/]+", "", _norm(name))
+
+
+def map_skill_names(
+    names: Iterable[str], skills: Iterable[Dict[str, Any]]
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    """Đổi tên kỹ năng AI trả về (List[str]) thành bản ghi skills_taxonomy.
+
+    skills: [{"id", "name", "aliases", "category"}].
+    Trả về (matched, unmapped):
+      - matched: [{"id", "name", "category"}], không trùng, giữ thứ tự xuất hiện.
+      - unmapped: tên không tìm thấy trong taxonomy (để ghi log / bổ sung alias).
+    Ưu tiên tên chuẩn hơn alias; khớp chính xác trước, khớp "rút gọn" sau.
     """
-    lookup: Dict[str, Dict[str, Any]] = {}
-    for s in skills:
-        lookup.setdefault(s["name"].strip().lower(), s)
-    for s in skills:  # tên chuẩn được ưu tiên hơn alias nếu trùng
+    skills = list(skills)
+    exact: Dict[str, Dict[str, Any]] = {}
+    compact: Dict[str, Dict[str, Any]] = {}
+    for s in skills:                                  # tên chuẩn trước
+        exact.setdefault(_norm(s["name"]), s)
+        compact.setdefault(_compact(s["name"]), s)
+    for s in skills:                                  # rồi tới alias
         for alias in s.get("aliases") or []:
-            lookup.setdefault(alias.strip().lower(), s)
+            exact.setdefault(_norm(alias), s)
+            compact.setdefault(_compact(alias), s)
 
-    result: List[Dict[str, Any]] = []
+    matched: List[Dict[str, Any]] = []
+    unmapped: List[str] = []
     seen = set()
-    for name in names:
-        s = lookup.get(name.strip().lower())
-        if s is not None and s["id"] not in seen:
-            seen.add(s["id"])
-            result.append({"id": s["id"], "name": s["name"]})
-    return result
+    for raw in names:
+        hit = exact.get(_norm(raw)) or compact.get(_compact(raw))
+        if hit is None:
+            if isinstance(raw, str) and raw.strip():
+                unmapped.append(raw.strip())
+            continue
+        if hit["id"] not in seen:
+            seen.add(hit["id"])
+            matched.append({"id": hit["id"], "name": hit["name"], "category": hit.get("category")})
+    return matched, unmapped
+
+
+def match_skill_names(names: Iterable[str], skills: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Giữ tên cũ để code đang dùng (cv_service) không bị vỡ."""
+    return map_skill_names(names, skills)[0]
