@@ -199,14 +199,18 @@ def _to_response(
         analysis = AIAnalysisResponse(
             matched=[_skill_ref(i, id_to_skill) for i in a.matched],
             missing=[_skill_ref(i, id_to_skill) for i in a.missing],
+            matched_skills=[_skill_ref(i, id_to_skill) for i in a.matched],
+            missing_skills=[_skill_ref(i, id_to_skill) for i in a.missing],
             score_breakdown=a.score_breakdown,
             recommendation=a.recommendation,
         )
     return ApplicationResponse(
         id=app.id, job_id=app.job_id, candidate_id=app.candidate_id, cv_url=app.cv_url,
-        pipeline_status=app.pipeline_status, ai_status=ai_status,
+        pipeline_status=app.pipeline_status,
+        ai_status=getattr(app, "ai_status", None) or ai_status,
         ai_match_score=app.ai_match_score, matching_version=app.matching_version,
         ai_analysis=analysis,
+        ai_analyzed_at=getattr(app, "ai_analyzed_at", None),
         parsed_text_preview=(app.parsed_text or "")[:300] or None,
         applied_at=app.applied_at,
     )
@@ -215,11 +219,10 @@ def _to_response(
 async def _application_response(app: Application) -> ApplicationResponse:
     skills = await SkillsTaxonomy.find_all().to_list()
     id_to_skill, _ = _skill_maps(skills)
-    response = _to_response(
-        app,
-        "DONE" if app.ai_match_score is not None else "FAILED",
-        id_to_skill,
-    )
+    saved_ai_status = getattr(app, "ai_status", None)
+    if saved_ai_status is None:
+        saved_ai_status = "DONE" if app.ai_match_score is not None else "FAILED"
+    response = _to_response(app, saved_ai_status, id_to_skill)
     job = await JobPosting.get(app.job_id)
     if job is not None:
         company = await Company.get(job.company_id)
@@ -391,6 +394,8 @@ async def apply_job(
         pipeline_status="APPLIED",
         status_history=[StatusHistory(status="APPLIED", changed_by=user.id)],
         ai_match_score=score, matching_version=version, ai_analysis=analysis,
+        ai_status=ai_status,
+        ai_analyzed_at=datetime.utcnow() if score is not None else None,
     )
     try:
         await app.insert()

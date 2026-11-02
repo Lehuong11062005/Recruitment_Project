@@ -23,6 +23,8 @@ class MatchingRequest(BaseModel):
 class AIAnalysisBreakdown(BaseModel):
     matched: List[str] = Field(default_factory=list)
     missing: List[str] = Field(default_factory=list)
+    matched_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
     score_breakdown: Dict[str, float] = Field(default_factory=dict)
     recommendation: str = ""
 
