@@ -6,10 +6,11 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.deps import get_current_recruiter
+from app.core.deps import get_current_candidate, get_current_recruiter
 from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
+from app.models.user import User
 from app.schemas.job import (
     JobCreateSchema,
     JobStatusUpdateSchema,
@@ -219,6 +220,11 @@ async def search_jobs(
         "page": page,
         "limit": limit,
     }
+
+
+@router.get("/recommendations", summary="Gợi ý việc làm phù hợp với hồ sơ ứng viên")
+async def recommend_jobs(current_user: User = Depends(get_current_candidate)):
+    return await JobService.get_recommendations(current_user)
 
 
 # Keep static routes before /{job_id}.

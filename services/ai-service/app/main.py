@@ -9,6 +9,7 @@ from app.routers import ai_matching
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ModelLoader.load_model()
+    ModelLoader.warm_up()
     yield
 
 

@@ -10,8 +10,22 @@ from app.models.user import User
 from app.schemas.application import ApplicationDetailResponse, ApplicationResponse
 from app.services import application_service
 from app.services.cv_utils import CVError
+from app.routers.ai_analysis import _owned_application
 
 router = APIRouter()
+
+
+@router.get(
+    "/{application_id}/ai-analysis",
+    response_model=ApplicationResponse,
+    summary="Xem chi tiết kết quả phân tích AI của hồ sơ",
+)
+async def get_application_ai_analysis(
+    application_id: str,
+    user: User = Depends(get_current_user),
+):
+    app = await _owned_application(application_id, user)
+    return await application_service._application_response(app)
 
 
 @router.get("/me", response_model=List[ApplicationResponse], summary="Danh sách đơn ứng tuyển của tôi")
