@@ -243,6 +243,23 @@ class JobService:
         return job
 
     @staticmethod
+    def is_valid_embedding_dimension(
+        vector: Any,
+        expected_dim: int = 384,
+    ) -> bool:
+        """Kiểm tra vector có đúng số chiều và chỉ chứa giá trị số hữu hạn."""
+        return (
+            isinstance(vector, list)
+            and len(vector) == expected_dim
+            and all(
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                for value in vector
+            )
+        )
+
+    @staticmethod
     async def update_job_with_embedding(job_id: str, job_in: JobUpdateSchema, current_user) -> JobPosting:
         job = await JobPosting.get(job_id)
         if not job or job.deleted_at is not None:

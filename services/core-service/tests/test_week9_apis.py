@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.deps import get_current_candidate, get_current_user
+from app.core.deps import get_current_recruiter
 from app.main import app
 from app.models.application import Application
 from app.models.job import JobPosting
@@ -212,3 +213,203 @@ def test_recommendations_returns_top_five_open_jobs_in_similarity_order(client, 
 
 async def _async_value(value):
     return value
+
+
+def test_list_ranked_job_applications_returns_score_order(client, monkeypatch):
+    recruiter = SimpleNamespace(id="64b000000000000000000020", user_type="RECRUITER")
+    job = SimpleNamespace(recruiter_id=recruiter.id, deleted_at=None)
+    rows = [
+        {
+            "_id": "64b000000000000000000031",
+            "candidate_id": "64b000000000000000000041",
+            "full_name": "Candidate Low",
+            "email": "low@example.com",
+            "phone": None,
+            "ai_match_score": 64.0,
+            "ai_status": "DONE",
+            "pipeline_status": "APPLIED",
+            "applied_at": "2026-10-02T10:00:00",
+            "matched_skills": [],
+            "missing_skills": [],
+        },
+        {
+            "_id": "64b000000000000000000032",
+            "candidate_id": "64b000000000000000000042",
+            "full_name": "Candidate High",
+            "email": "high@example.com",
+            "phone": "0123456789",
+            "ai_match_score": 96.0,
+            "ai_status": "DONE",
+            "pipeline_status": "SCREENING",
+            "applied_at": "2026-10-03T10:00:00",
+            "matched_skills": [
+                {"id": "64b000000000000000000051", "name": "Python"}
+            ],
+            "missing_skills": [
+                {"id": "64b000000000000000000052", "name": "MongoDB"}
+            ],
+        },
+    ]
+    captured = {}
+
+    async def get_job(_job_id):
+        return job
+
+    class _Aggregate:
+        async def to_list(self, length=None):
+            return sorted(
+                rows,
+                key=lambda row: (
+                    row["ai_match_score"],
+                    row["applied_at"],
+                ),
+                reverse=True,
+            )
+
+    class _Collection:
+        def aggregate(self, pipeline):
+            captured["pipeline"] = pipeline
+            return _Aggregate()
+
+    monkeypatch.setattr(JobPosting, "get", staticmethod(get_job))
+    monkeypatch.setattr(
+        Application,
+        "get_motor_collection",
+        staticmethod(lambda: _Collection()),
+    )
+    app.dependency_overrides[get_current_recruiter] = lambda: recruiter
+    try:
+        response = client.get(f"/api/v1/jobs/{JOB_ID}/applications")
+        assert response.status_code == 200, response.text
+        items = response.json()
+        assert [item["ai_match_score"] for item in items] == [96.0, 64.0]
+        assert items[0]["full_name"] == "Candidate High"
+        assert items[0]["matched_skills"] == [
+            {"id": "64b000000000000000000051", "name": "Python"}
+        ]
+        assert items[0]["missing_skills"] == [
+            {"id": "64b000000000000000000052", "name": "MongoDB"}
+        ]
+        assert items[0]["cv_preview_url"] == (
+            f"/api/v1/applications/{items[0]['id']}/cv"
+        )
+        assert captured["pipeline"][1]["$sort"] == {
+            "ai_match_score": -1,
+            "applied_at": -1,
+        }
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_list_ranked_job_applications_forbidden_for_missing_or_unowned_job(
+    client, monkeypatch
+):
+    recruiter = SimpleNamespace(id="64b000000000000000000020", user_type="RECRUITER")
+
+    async def get_missing_job(_job_id):
+        return None
+
+    monkeypatch.setattr(JobPosting, "get", staticmethod(get_missing_job))
+    app.dependency_overrides[get_current_recruiter] = lambda: recruiter
+    try:
+        assert client.get(
+            f"/api/v1/jobs/{JOB_ID}/applications"
+        ).status_code == 403
+
+        async def get_unowned_job(_job_id):
+            return SimpleNamespace(
+                recruiter_id="64b000000000000000000099",
+                deleted_at=None,
+            )
+
+        monkeypatch.setattr(JobPosting, "get", staticmethod(get_unowned_job))
+        assert client.get(
+            f"/api/v1/jobs/{JOB_ID}/applications"
+        ).status_code == 403
+        assert client.get(
+            "/api/v1/jobs/not-an-object-id/applications"
+        ).status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_list_ranked_job_applications_returns_empty_array(client, monkeypatch):
+    recruiter = SimpleNamespace(id="64b000000000000000000020", user_type="RECRUITER")
+
+    async def get_job(_job_id):
+        return SimpleNamespace(recruiter_id=recruiter.id, deleted_at=None)
+
+    class _Aggregate:
+        async def to_list(self, length=None):
+            return []
+
+    class _Collection:
+        def aggregate(self, _pipeline):
+            return _Aggregate()
+
+    monkeypatch.setattr(JobPosting, "get", staticmethod(get_job))
+    monkeypatch.setattr(
+        Application,
+        "get_motor_collection",
+        staticmethod(lambda: _Collection()),
+    )
+    app.dependency_overrides[get_current_recruiter] = lambda: recruiter
+    try:
+        response = client.get(f"/api/v1/jobs/{JOB_ID}/applications")
+        assert response.status_code == 200
+        assert response.json() == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_list_ranked_job_applications_passes_filters_to_match(client, monkeypatch):
+    recruiter = SimpleNamespace(id="64b000000000000000000020", user_type="RECRUITER")
+    captured = {}
+
+    async def get_job(_job_id):
+        return SimpleNamespace(recruiter_id=recruiter.id, deleted_at=None)
+
+    class _Aggregate:
+        async def to_list(self, length=None):
+            return []
+
+    class _Collection:
+        def aggregate(self, pipeline):
+            captured["pipeline"] = pipeline
+            return _Aggregate()
+
+    monkeypatch.setattr(JobPosting, "get", staticmethod(get_job))
+    monkeypatch.setattr(
+        Application,
+        "get_motor_collection",
+        staticmethod(lambda: _Collection()),
+    )
+    app.dependency_overrides[get_current_recruiter] = lambda: recruiter
+    try:
+        response = client.get(
+            f"/api/v1/jobs/{JOB_ID}/applications",
+            params={"pipeline_status": "INTERVIEW", "min_ai_score": 78},
+        )
+        assert response.status_code == 200
+        match_filter = captured["pipeline"][0]["$match"]
+        assert str(match_filter["job_id"]) == JOB_ID
+        assert match_filter["pipeline_status"] == "INTERVIEW"
+        assert match_filter["ai_match_score"] == {"$gte": 78}
+        assert captured["pipeline"][2]["$lookup"]["from"] == "users"
+        assert captured["pipeline"][4]["$lookup"]["from"] == "skills_taxonomy"
+        assert captured["pipeline"][5]["$lookup"]["from"] == "skills_taxonomy"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_list_ranked_job_applications_rejects_invalid_pipeline_status(client):
+    recruiter = SimpleNamespace(id="64b000000000000000000020", user_type="RECRUITER")
+    app.dependency_overrides[get_current_recruiter] = lambda: recruiter
+    try:
+        response = client.get(
+            f"/api/v1/jobs/{JOB_ID}/applications",
+            params={"pipeline_status": "UNKNOWN"},
+        )
+        assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()

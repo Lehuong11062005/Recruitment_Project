@@ -64,3 +64,23 @@ class ApplicationDetailResponse(ApplicationResponse):
     cv_parsed_text: Optional[str] = None
     recruiter_note: Optional[str] = None     # chỉ HR mới thấy
     status_history: List[StatusHistoryItem] = []
+
+
+class RankedSkillItem(BaseModel):
+    id: PydanticObjectId
+    name: str
+
+
+class RankedApplicationItem(BaseModel):
+    id: PydanticObjectId
+    candidate_id: PydanticObjectId
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+    ai_match_score: Optional[float] = None
+    ai_status: Optional[str] = None
+    pipeline_status: str
+    applied_at: datetime
+    matched_skills: List[RankedSkillItem] = Field(default_factory=list)
+    missing_skills: List[RankedSkillItem] = Field(default_factory=list)
+    cv_preview_url: str

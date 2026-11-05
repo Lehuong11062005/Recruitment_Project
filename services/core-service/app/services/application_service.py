@@ -8,10 +8,12 @@ import asyncio
 import logging
 import math
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
+from bson.errors import InvalidId
 from beanie import PydanticObjectId
 from fastapi import UploadFile
 from pymongo.errors import DuplicateKeyError
@@ -28,6 +30,8 @@ from app.schemas.application import (
     ApplicationDetailResponse,
     ApplicationResponse,
     CandidateBrief,
+    RankedApplicationItem,
+    RankedSkillItem,
     SkillRef,
     StatusHistoryItem,
 )
@@ -408,3 +412,121 @@ async def apply_job(
 
     await job.update({"$inc": {"applications_count": 1}})
     return _to_response(app, ai_status, id_to_skill)
+
+
+async def list_job_applications_ranked(
+    user: User,
+    job_id: str,
+    pipeline_status: Optional[str] = None,
+    min_ai_score: Optional[float] = None,
+) -> List[RankedApplicationItem]:
+    """Liệt kê và xếp hạng ứng viên của tin tuyển dụng thuộc recruiter hiện tại."""
+    try:
+        object_id = PydanticObjectId(job_id)
+    except (InvalidId, TypeError):
+        raise CVError(403, "Bạn không có quyền xem ứng viên của tin tuyển dụng này")
+
+    job = await JobPosting.get(object_id)
+    if job is None or job.deleted_at is not None or job.recruiter_id != user.id:
+        raise CVError(403, "Bạn không có quyền xem ứng viên của tin tuyển dụng này")
+
+    match_filter: Dict[str, Any] = {"job_id": object_id}
+    if pipeline_status is not None:
+        match_filter["pipeline_status"] = pipeline_status
+    if min_ai_score is not None:
+        match_filter["ai_match_score"] = {"$gte": min_ai_score}
+
+    pipeline = [
+        {"$match": match_filter},
+        {"$sort": {"ai_match_score": -1, "applied_at": -1}},
+        {
+            "$lookup": {
+                "from": "users",
+                "localField": "candidate_id",
+                "foreignField": "_id",
+                "as": "candidate",
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$candidate",
+                "preserveNullAndEmptyArrays": True,
+            }
+        },
+        {
+            "$lookup": {
+                "from": "skills_taxonomy",
+                "localField": "ai_analysis.matched",
+                "foreignField": "_id",
+                "as": "matched_skill_docs",
+            }
+        },
+        {
+            "$lookup": {
+                "from": "skills_taxonomy",
+                "localField": "ai_analysis.missing",
+                "foreignField": "_id",
+                "as": "missing_skill_docs",
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "candidate_id": 1,
+                "ai_match_score": 1,
+                "ai_status": 1,
+                "pipeline_status": 1,
+                "applied_at": 1,
+                "full_name": {"$ifNull": ["$candidate.full_name", ""]},
+                "email": {"$ifNull": ["$candidate.email", ""]},
+                "phone": {
+                    "$ifNull": [
+                        "$candidate.phone",
+                        "$candidate.profile.phone",
+                    ]
+                },
+                "matched_skills": {
+                    "$map": {
+                        "input": {"$ifNull": ["$matched_skill_docs", []]},
+                        "as": "skill",
+                        "in": {"id": "$$skill._id", "name": "$$skill.name"},
+                    }
+                },
+                "missing_skills": {
+                    "$map": {
+                        "input": {"$ifNull": ["$missing_skill_docs", []]},
+                        "as": "skill",
+                        "in": {"id": "$$skill._id", "name": "$$skill.name"},
+                    }
+                },
+            }
+        },
+    ]
+    rows = await Application.get_motor_collection().aggregate(pipeline).to_list(
+        length=None
+    )
+
+    return [
+        RankedApplicationItem(
+            id=row["_id"],
+            candidate_id=row["candidate_id"],
+            full_name=row.get("full_name") or "",
+            email=row.get("email") or "",
+            phone=row.get("phone"),
+            ai_match_score=row.get("ai_match_score"),
+            ai_status=row.get("ai_status")
+            or ("DONE" if row.get("ai_match_score") is not None else "FAILED"),
+            pipeline_status=row["pipeline_status"],
+            applied_at=row["applied_at"],
+            matched_skills=[
+                RankedSkillItem(id=skill["id"], name=skill["name"])
+                for skill in row.get("matched_skills", [])
+            ],
+            missing_skills=[
+                RankedSkillItem(id=skill["id"], name=skill["name"])
+                for skill in row.get("missing_skills", [])
+            ],
+            cv_preview_url=f"/api/v1/applications/{row['_id']}/cv",
+        )
+        for row in rows
+    ]
