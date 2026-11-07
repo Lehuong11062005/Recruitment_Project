@@ -60,6 +60,8 @@ export default function CandidateProfile() {
   const [uploading, setUploading] = useState(false);
   const [cvError, setCvError] = useState('');
   const [cvSuccess, setCvSuccess] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -175,6 +177,26 @@ export default function CandidateProfile() {
     }
   };
 
+  const exportProfile = async () => {
+    setExportError('');
+    setExporting(true);
+    try {
+      const pdf = await candidateProfileService.exportProfilePDF();
+      const url = URL.createObjectURL(pdf);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ho-so-ung-vien.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setExportError('Không tải được hồ sơ PDF. Vui lòng thử lại.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const addSuggestedSkill = (skill) => {
     setProfile((current) => current.skills.includes(skill.id) ? current : { ...current, skills: [...current.skills, skill.id] });
     setSuggestedSkills((current) => current.filter((item) => item.id !== skill.id));
@@ -185,7 +207,18 @@ export default function CandidateProfile() {
   return (
     <div className="content-stack">
       <section className="card">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>{CANDIDATE_DEMO_MODE && <span className="badge badge-amber">DỮ LIỆU DEMO</span>}</div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>
+          {CANDIDATE_DEMO_MODE ? (
+            <span className="badge badge-amber">DỮ LIỆU DEMO</span>
+          ) : (
+            <button type="button" className="btn btn-secondary" disabled={exporting || saving || !profile.user_id} onClick={exportProfile}>
+              <Icon name="file" size={16} />{exporting ? 'Đang tạo PDF…' : 'Tải xuống CV (PDF)'}
+            </button>
+          )}
+        </div>
+        {!CANDIDATE_DEMO_MODE && <p className="muted small mt-2">File PDF dùng thông tin đã lưu trên hồ sơ.</p>}
+        {exportError && <p className="field-error mt-2" role="alert">{exportError}</p>}
       </section>
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {notice && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{notice}</div>}

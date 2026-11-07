@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 
 from app.core.deps import get_current_candidate
 from app.models.user import User
@@ -12,6 +12,24 @@ router = APIRouter()
 @router.get("/me/profile", response_model=ProfileResponse, summary="Xem hồ sơ cá nhân (UC-C2)")
 async def get_my_profile(user: User = Depends(get_current_candidate)):
     return profile_service.to_profile_response(user)
+
+
+@router.get(
+    "/me/profile/export-pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+    summary="Xuất hồ sơ ứng viên thành PDF",
+)
+async def export_my_profile(user: User = Depends(get_current_candidate)):
+    pdf = await profile_service.export_profile_pdf(user)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="ho-so-ung-vien.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.put("/me/profile", response_model=ProfileResponse,

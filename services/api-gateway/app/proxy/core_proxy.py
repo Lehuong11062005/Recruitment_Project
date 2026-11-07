@@ -32,9 +32,15 @@ async def proxy_core(path: str, request: Request):
             content=body,
             timeout=60.0,
         )
-    # Tra response ve frontend/client.
+    # Preserve file download and cache directives from Core.
+    response_headers = {
+        name: response.headers[name]
+        for name in ("content-disposition", "cache-control")
+        if name in response.headers
+    }
     return Response(
         content=response.content,
         status_code=response.status_code,
         media_type=response.headers.get("content-type"),
+        headers=response_headers,
     )

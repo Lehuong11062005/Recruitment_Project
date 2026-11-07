@@ -4,6 +4,7 @@ import api from './api';
 export const candidateProfileService = {
   getProfile: () => api.get('/api/v1/users/me/profile'),
   updateProfile: (payload) => api.put('/api/v1/users/me/profile', payload),
+  exportProfilePDF: () => api.get('/api/v1/users/me/profile/export-pdf', { responseType: 'blob' }),
   getSkills: () => api.get('/api/v1/skills', { params: { limit: 200 } }),
   uploadCV(file) {
     const formData = new FormData();
