@@ -3,10 +3,12 @@ from typing import List
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
 from app.models.skill import SkillsTaxonomy
 from app.models.user import CandidateProfile, User
 from app.schemas.user import ProfileResponse, ProfileUpdate
+from app.services.profile_pdf import render_profile_pdf
 
 
 def to_profile_response(user: User) -> ProfileResponse:
@@ -23,6 +25,25 @@ def to_profile_response(user: User) -> ProfileResponse:
         education=p.education,
         cv_url=p.cv_url,
     )
+
+
+async def export_profile_pdf(user: User) -> bytes:
+    profile = to_profile_response(user)
+    skill_names = []
+    if profile.skills:
+        rows = await User.get_motor_collection().aggregate([
+            {"$match": {"_id": user.id}},
+            {"$lookup": {
+                "from": SkillsTaxonomy.Settings.name,
+                "localField": "profile.skills",
+                "foreignField": "_id",
+                "as": "export_skills",
+            }},
+            {"$project": {"_id": 0, "export_skills._id": 1, "export_skills.name": 1}},
+        ]).to_list(length=1)
+        found = {skill["_id"]: skill["name"] for row in rows for skill in row["export_skills"]}
+        skill_names = [found[skill_id] for skill_id in dict.fromkeys(profile.skills) if skill_id in found]
+    return await run_in_threadpool(render_profile_pdf, profile, skill_names)
 
 
 async def _validate_skill_ids(ids: List[PydanticObjectId]) -> List[PydanticObjectId]:
