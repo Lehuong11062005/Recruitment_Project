@@ -127,4 +127,12 @@ export const jobService = {
   getSkills(params = {}) {
     return api.get('/api/v1/skills', { params });
   },
+
+  // danh sách ứng viên của tin, đã xếp hạng theo ai_match_score giảm dần.
+  getJobApplications(jobId, params = {}) {
+    return api.get(
+      `/api/v1/jobs/${encodeURIComponent(String(jobId))}/applications`,
+      { params }
+    );
+  },
 };
