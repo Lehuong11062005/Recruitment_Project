@@ -128,8 +128,7 @@ export const jobService = {
     return api.get('/api/v1/skills', { params });
   },
 
-  // UC-R4: danh sách ứng viên của tin, đã xếp hạng theo ai_match_score giảm dần.
-  // params (tùy chọn): { pipeline_status, min_ai_score }
+  // danh sách ứng viên của tin, đã xếp hạng theo ai_match_score giảm dần.
   getJobApplications(jobId, params = {}) {
     return api.get(
       `/api/v1/jobs/${encodeURIComponent(String(jobId))}/applications`,
