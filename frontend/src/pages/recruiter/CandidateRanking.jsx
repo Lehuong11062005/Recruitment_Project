@@ -5,18 +5,6 @@ import { PIPELINE_STATUS, PIPELINE_STATUS_LABELS } from '../../constants/status'
 import { applicationService } from '../../services/applicationService';
 import { jobService } from '../../services/jobService';
 
-/**
- * Tuần 9 — Task 8.2 + Task 8.4 (UC-R4, UC-R5)
- *  - Cột trái (35%): danh sách ứng viên xếp hạng #1, #2... theo điểm % AI Match.
- *  - Cột phải (65%): thẻ "Phân tích AI" của ứng viên đang chọn
- *    (score_breakdown, kỹ năng trùng khớp / còn thiếu, lời khuyên của AI).
- *
- * Dữ liệu thật từ backend:
- *  - GET /api/v1/jobs/{job_id}/applications          → danh sách đã xếp hạng
- *  - GET /api/v1/ai-analysis/applications/{id}       → score_breakdown + recommendation
- *  - POST /api/v1/ai-analysis/applications/{id}/retry → phân tích lại khi AI lỗi
- */
-
 const STATUS_ORDER = [
   PIPELINE_STATUS.APPLIED,
   PIPELINE_STATUS.SCREENING,
@@ -40,7 +28,6 @@ const BREAKDOWN_ROWS = [
   { label: 'Nội dung CV so với JD', keys: ['semantic_match', 'semantic_score'] },
 ];
 
-// Chuyển lỗi đồng bộ (ví dụ API Jobs bị tắt bằng biến môi trường) thành Promise reject.
 const safely = (fn) => new Promise((resolve) => resolve(fn()));
 
 const hasScore = (score) => score !== null && score !== undefined && !Number.isNaN(Number(score));
@@ -139,7 +126,7 @@ function RankingWorkspace({ jobId }) {
     return () => { active = false; };
   }, [jobId]);
 
-  // Danh sách ứng viên đã xếp hạng (Task 8.1 backend).
+  // Danh sách ứng viên đã xếp hạng.
   useEffect(() => {
     let active = true;
     safely(() => jobService.getJobApplications(jobId))
@@ -160,7 +147,7 @@ function RankingWorkspace({ jobId }) {
     setReloadKey((key) => key + 1);
   };
 
-  // Điểm cao → thấp, chưa có điểm xếp cuối; sort ổn định nên giữ thứ tự backend khi bằng điểm.
+  // Điểm cao → thấp, chưa có điểm xếp cuối;
   const ranked = useMemo(
     () => candidates
       .map((item) => ({ ...item, id: String(item.id) }))
@@ -351,7 +338,6 @@ function RankingWorkspace({ jobId }) {
       )}
 
       <div className="crr-split">
-        {/* ===== Cột trái 35%: danh sách xếp hạng (Task 8.2) ===== */}
         <section className="card crr-list" aria-labelledby="crr-list-title">
           <div className="crr-list-head">
             <div>
@@ -406,7 +392,6 @@ function RankingWorkspace({ jobId }) {
           )}
         </section>
 
-        {/* ===== Cột phải 65%: Bảng Phân tích AI (Task 8.4 - UC-R5) ===== */}
         <div className="crr-review">
           {!selected ? (
             <section className="card crr-ai">
@@ -521,7 +506,6 @@ function RankingWorkspace({ jobId }) {
               </div>
             </section>
           )}
-          {/* Xem trước CV (Task 8.3) và lịch phỏng vấn sẽ được thêm vào cột này. */}
         </div>
       </div>
     </div>
