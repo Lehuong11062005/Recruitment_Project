@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.proxy.ai_proxy import router as ai_router
 from app.proxy.core_proxy import router as core_router
+from app.proxy.ws_proxy import router as ws_router
 app=FastAPI()
 
 app.add_middleware(
@@ -17,5 +18,6 @@ app.add_middleware(
 def root():
     return {"messager": "Api-gateway is running"}
 
+app.include_router(ws_router)
 app.include_router(ai_router)
 app.include_router(core_router)

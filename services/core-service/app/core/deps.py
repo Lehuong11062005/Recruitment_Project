@@ -49,3 +49,12 @@ async def get_current_recruiter(user: User = Depends(get_current_user)) -> User:
             detail="Chỉ nhà tuyển dụng (RECRUITER) mới dùng được chức năng này",
         )
     return user
+
+
+async def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Chỉ quản trị viên (ADMIN) mới dùng được chức năng này",
+        )
+    return user
