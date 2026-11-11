@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi.responses import FileResponse
 
 from app.core.deps import get_current_candidate
 from app.models.user import User
@@ -44,6 +45,22 @@ async def update_my_profile(data: ProfileUpdate, user: User = Depends(get_curren
 async def reset_my_profile(user: User = Depends(get_current_candidate)):
     user = await profile_service.reset_profile(user)
     return profile_service.to_profile_response(user)
+
+
+@router.get("/me/cv", response_class=FileResponse,
+            summary="Xem trước file CV PDF hiện tại trong hồ sơ (UC-C3)")
+async def get_my_cv(user: User = Depends(get_current_candidate)):
+    try:
+        path = cv_service.get_my_cv_file_path(user)
+    except CVError as e:
+        raise HTTPException(e.status_code, e.message)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        content_disposition_type="inline",
+        filename="cv_ung_vien.pdf",
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store"},
+    )
 
 
 @router.post("/me/cv", response_model=CVUploadResponse,

@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, Depends
 from jose import jwt, JWTError
 
-from config import settings
+from app.config import settings
 
 def get_token_from_header(request: Request):
     auth = request.headers.get("Authorization")
