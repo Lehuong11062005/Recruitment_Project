@@ -208,10 +208,12 @@ def _to_response(
             score_breakdown=a.score_breakdown,
             recommendation=a.recommendation,
         )
+    raw_status = getattr(app, "ai_status", None) or ai_status
+    normalized_status = "DONE" if raw_status == "COMPLETED" else raw_status
     return ApplicationResponse(
         id=app.id, job_id=app.job_id, candidate_id=app.candidate_id, cv_url=app.cv_url,
         pipeline_status=app.pipeline_status,
-        ai_status=getattr(app, "ai_status", None) or ai_status,
+        ai_status=normalized_status,
         ai_match_score=app.ai_match_score, matching_version=app.matching_version,
         ai_analysis=analysis,
         ai_analyzed_at=getattr(app, "ai_analyzed_at", None),
@@ -514,8 +516,10 @@ async def list_job_applications_ranked(
             email=row.get("email") or "",
             phone=row.get("phone"),
             ai_match_score=row.get("ai_match_score"),
-            ai_status=row.get("ai_status")
-            or ("DONE" if row.get("ai_match_score") is not None else "FAILED"),
+            ai_status="DONE" if row.get("ai_status") == "COMPLETED" else (
+                row.get("ai_status")
+                or ("DONE" if row.get("ai_match_score") is not None else "FAILED")
+            ),
             pipeline_status=row["pipeline_status"],
             applied_at=row["applied_at"],
             matched_skills=[

@@ -154,7 +154,9 @@ async def _owned_application(application_id: str, user: User) -> Application:
 
 def _application_ai_status(app: Application) -> str:
     status_value = getattr(app, "ai_status", None)
-    if status_value in {"FAILED", "PENDING", "PROCESSING", "SKIPPED", "COMPLETED", "DONE"}:
+    if status_value == "COMPLETED":
+        return "DONE"
+    if status_value in {"FAILED", "PENDING", "PROCESSING", "SKIPPED", "DONE"}:
         return status_value
     return "DONE" if app.ai_match_score is not None else "FAILED"
 
@@ -235,7 +237,7 @@ async def retry_ai_analysis(
         app.ai_match_score = float(result["ai_match_score"])
         app.matching_version = result["matching_version"]
         app.ai_analysis = _map_analysis(result, taxonomy)
-        app.ai_status = "COMPLETED"
+        app.ai_status = "DONE"
         app.ai_analyzed_at = datetime.utcnow()
         app.ai_error = None
         app.updated_at = datetime.utcnow()

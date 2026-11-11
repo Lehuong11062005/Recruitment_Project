@@ -51,6 +51,15 @@ def _url_to_path(user_id, cv_url: Optional[str]) -> Optional[Path]:
     return path
 
 
+def get_my_cv_file_path(user: User) -> Path:
+    """Trả về đường dẫn file PDF CV hiện tại trong hồ sơ ứng viên."""
+    cv_url = user.profile.cv_url if user.profile else None
+    path = _url_to_path(user.id, cv_url)
+    if path is None or not path.is_file():
+        raise CVError(404, "Không tìm thấy file CV trong hồ sơ")
+    return path
+
+
 async def _extract_with_ai(user: User, filename: str, data: bytes) -> CVExtraction:
     """Gọi AI Service; lỗi AI không làm hỏng việc upload CV."""
     if not settings.AI_URL:

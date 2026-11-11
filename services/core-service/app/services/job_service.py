@@ -5,6 +5,7 @@ import logging
 import httpx
 from fastapi import HTTPException, status
 from app.core.config import settings
+from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
@@ -46,11 +47,19 @@ class JobService:
         jobs = await JobPosting.find(
             {"status": "OPEN", "deleted_at": None}
         ).to_list()
+        verified_companies = await Company.find(
+            {"verification_status": "VERIFIED", "deleted_at": None}
+        ).to_list()
+        companies_by_id = {
+            str(company.id): company.name for company in verified_companies
+        }
         candidate_skill_ids = {
             str(skill_id) for skill_id in (candidate.profile.skills if candidate.profile else [])
         }
         scored: List[Tuple[float, JobPosting, List[str]]] = []
         for job in jobs:
+            if str(job.company_id) not in companies_by_id:
+                continue
             vector = job.job_embedding_vector
             if not isinstance(vector, list) or len(vector) != len(valid_candidate_vector):
                 continue
@@ -83,6 +92,7 @@ class JobService:
                 "title": job.title,
                 "description": job.description,
                 "company_id": str(job.company_id),
+                "company_name": companies_by_id.get(str(job.company_id), "Doanh nghiệp"),
                 "required_skills": [str(skill_id) for skill_id in job.required_skills],
                 "required_skill_names": [
                     skill_names[str(skill_id)]

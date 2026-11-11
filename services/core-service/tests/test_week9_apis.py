@@ -7,6 +7,7 @@ from app.core.deps import get_current_candidate, get_current_user
 from app.core.deps import get_current_recruiter
 from app.main import app
 from app.models.application import Application
+from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
@@ -51,7 +52,7 @@ def _application_response(app_record):
 def test_get_application_ai_analysis_returns_result_and_404_403(client, monkeypatch):
     record = SimpleNamespace(
         id=APPLICATION_ID, job_id=JOB_ID, candidate_id=CANDIDATE_ID,
-        cv_url="cv.pdf", ai_status="COMPLETED", ai_match_score=91.0,
+        cv_url="cv.pdf", ai_status="DONE", ai_match_score=91.0,
         matching_version="v1", ai_analyzed_at=None,
         applied_at="2026-01-01T00:00:00",
     )
@@ -95,7 +96,7 @@ def test_get_application_ai_analysis_returns_result_and_404_403(client, monkeypa
 
 
 def test_retry_rejects_non_failed_application(client, monkeypatch):
-    record = SimpleNamespace(id=APPLICATION_ID, ai_status="COMPLETED")
+    record = SimpleNamespace(id=APPLICATION_ID, ai_status="DONE")
     monkeypatch.setattr(
         ai_analysis, "_owned_application",
         lambda _id, _user: _async_value(record),
@@ -160,7 +161,7 @@ def test_retry_reprocesses_failed_application(client, monkeypatch, tmp_path):
     try:
         response = client.post(f"/api/v1/ai-analysis/{APPLICATION_ID}/retry")
         assert response.status_code == 200, response.text
-        assert response.json()["ai_status"] == "COMPLETED"
+        assert response.json()["ai_status"] == "DONE"
         assert response.json()["ai_match_score"] == 88.0
     finally:
         app.dependency_overrides.clear()
@@ -174,14 +175,15 @@ def test_recommendations_returns_top_five_open_jobs_in_similarity_order(client, 
     jobs = [
         SimpleNamespace(
             id=f"64b0000000000000000000{index:02d}", title=f"Job {index}", description="",
-            company_id="company-1", required_skills=[], level="MID",
+            company_id="company-pending" if index == 7 else "company-1",
+            required_skills=[], level="MID",
             experience_required=0, salary=None, location="Remote",
             job_embedding_vector=vector,
             status="CLOSED" if index == 6 else "OPEN",
         )
         for index, vector in enumerate([
             [0.1, 0.9], [0.9, 0.1], [1.0, 0.0], [0.8, 0.2],
-            [0.7, 0.3], [0.6, 0.4], [1.0, 0.0],
+            [0.7, 0.3], [0.6, 0.4], [1.0, 0.0], [1.0, 0.0],
         ])
     ]
 
@@ -191,6 +193,13 @@ def test_recommendations_returns_top_five_open_jobs_in_similarity_order(client, 
         staticmethod(lambda query: _Query(
             [job for job in jobs if query.get("status") == job.status]
         )),
+    )
+    monkeypatch.setattr(
+        Company,
+        "find",
+        staticmethod(lambda _query: _Query([
+            SimpleNamespace(id="company-1", name="NovaTech Verified", verification_status="VERIFIED"),
+        ])),
     )
     monkeypatch.setattr(SkillsTaxonomy, "find_all", staticmethod(lambda: _Query([])))
     app.dependency_overrides[get_current_candidate] = lambda: candidate
@@ -206,6 +215,7 @@ def test_recommendations_returns_top_five_open_jobs_in_similarity_order(client, 
             "64b000000000000000000004",
             "64b000000000000000000005",
         ]
+        assert all(item["company_name"] == "NovaTech Verified" for item in items)
         assert all(items[index]["match_score"] >= items[index + 1]["match_score"] for index in range(4))
     finally:
         app.dependency_overrides.clear()
@@ -411,5 +421,32 @@ def test_list_ranked_job_applications_rejects_invalid_pipeline_status(client):
             params={"pipeline_status": "UNKNOWN"},
         )
         assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_my_cv_returns_pdf_or_404(client, monkeypatch, tmp_path):
+    from app.services import cv_service
+
+    monkeypatch.setattr(cv_service, "CV_DIR", tmp_path)
+    user_dir = tmp_path / CANDIDATE_ID
+    user_dir.mkdir(parents=True)
+    pdf_file = user_dir / "mycv.pdf"
+    pdf_file.write_bytes(b"%PDF-1.4 sample cv")
+
+    candidate = SimpleNamespace(
+        id=CANDIDATE_ID,
+        user_type="CANDIDATE",
+        profile=SimpleNamespace(cv_url=f"/uploads/cvs/{CANDIDATE_ID}/mycv.pdf"),
+    )
+    app.dependency_overrides[get_current_candidate] = lambda: candidate
+    try:
+        response = client.get("/api/v1/users/me/cv")
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.content.startswith(b"%PDF-")
+
+        candidate.profile.cv_url = None
+        assert client.get("/api/v1/users/me/cv").status_code == 404
     finally:
         app.dependency_overrides.clear()

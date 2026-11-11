@@ -27,7 +27,7 @@ class ApplicationResponse(BaseModel):
     cv_url: str
     pipeline_status: str
     ai_status: Literal[
-        "DONE", "SKIPPED", "FAILED", "PENDING", "PROCESSING", "COMPLETED"
+        "DONE", "SKIPPED", "FAILED", "PENDING", "PROCESSING"
     ]   # AI chấm điểm được hay chưa
     ai_match_score: Optional[float] = None
     matching_version: Optional[str] = None
