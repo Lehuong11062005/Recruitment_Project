@@ -88,9 +88,10 @@ export const jobService = {
   getRecommendations() {
     requireJobsEnabled();
 
+    // Backend đã có GET /api/v1/jobs/recommendations (Top 5, trả { items, message }).
     const path = getConfiguredPath(
-      import.meta.env.VITE_JOBS_RECOMMENDATIONS_PATH,
-      'Chưa cấu hình VITE_JOBS_RECOMMENDATIONS_PATH; chưa gửi request.'
+      import.meta.env.VITE_JOBS_RECOMMENDATIONS_PATH || '/api/v1/jobs/recommendations',
+      'Chưa cấu hình VITE_JOBS_RECOMMENDATIONS_PATH.'
     );
 
     return api.get(path);
