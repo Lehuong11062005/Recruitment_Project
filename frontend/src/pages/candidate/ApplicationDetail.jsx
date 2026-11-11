@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
-import { API_URL } from '../../config/env';
+import MatchResultBox from '../../components/MatchResultBox';
+import PdfPreviewer from '../../components/PdfPreviewer';
 import { PIPELINE_STATUS_LABELS } from '../../constants/status';
 import { applicationService } from '../../services/applicationService';
 
 const errorText = (error) => error?.message || 'Không thể tải thông tin hồ sơ.';
-
-function cvHref(cvUrl) {
-  if (!cvUrl) return '';
-  return /^https?:\/\//i.test(cvUrl)
-    ? cvUrl
-    : `${API_URL.replace(/\/$/, '')}${cvUrl.startsWith('/') ? '' : '/'}${cvUrl}`;
-}
 
 export default function ApplicationDetail() {
   const { applicationId } = useParams();
@@ -68,8 +62,6 @@ export default function ApplicationDetail() {
     );
   }
 
-  const analysis = application.ai_analysis || {};
-  const cvUrl = cvHref(application.cv_url);
 
   return (
     <div className="content-stack">
@@ -98,9 +90,9 @@ export default function ApplicationDetail() {
                 <p className="muted small">CV và nội dung đã được gửi cùng đơn ứng tuyển.</p>
               </div>
             </div>
-            {cvUrl && <a className="inline-link" href={cvUrl} target="_blank" rel="noreferrer">Mở CV đã nộp</a>}
             {application.parsed_text_preview && <p className="mt-3 whitespace-pre-wrap text-sm">{application.parsed_text_preview}</p>}
           </section>
+          <PdfPreviewer applicationId={applicationId} />
         </div>
         <aside className="card analysis-detail">
           <div className="card-header">
@@ -109,26 +101,12 @@ export default function ApplicationDetail() {
               <p className="muted small">Kết quả phù hợp của hồ sơ ứng tuyển.</p>
             </div>
           </div>
-          <div className="score-text text-2xl font-bold">
-            {application.ai_match_score == null ? 'Chưa có điểm' : `${application.ai_match_score}%`}
-          </div>
-          <p className="muted small">Trạng thái AI: {application.ai_status}</p>
-          {analysis.recommendation && <p className="mt-3 text-sm">{analysis.recommendation}</p>}
-          {analysis.matched?.length > 0 && (
-            <div className="mt-4">
-              <strong>Kỹ năng khớp</strong>
-              <div className="mt-2 flex flex-wrap gap-2">{analysis.matched.map((skill) => <span className="badge badge-green" key={skill.id}>{skill.name}</span>)}</div>
-            </div>
-          )}
-          {analysis.missing?.length > 0 && (
-            <div className="mt-4">
-              <strong>Kỹ năng còn thiếu</strong>
-              <div className="mt-2 flex flex-wrap gap-2">{analysis.missing.map((skill) => <span className="badge badge-amber" key={skill.id}>{skill.name}</span>)}</div>
-            </div>
-          )}
-          <button type="button" className="btn btn-secondary full-button mt-5" onClick={retryAnalysis} disabled={retrying}>
-            {retrying ? 'Đang phân tích lại…' : 'Phân tích lại'}
-          </button>
+          <MatchResultBox
+            result={application}
+            onRetry={retryAnalysis}
+            retrying={retrying}
+            retryDisabledReason={application.ai_status === 'FAILED' ? '' : 'Chỉ phân tích lại được khi AI báo lỗi (FAILED).'}
+          />
         </aside>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Icon from '../../components/Icon';
+import RecommendedJobs from '../../components/RecommendedJobs';
 
 export default function CandidateDashboard() {
   const { user } = useAuth();
@@ -18,6 +19,8 @@ export default function CandidateDashboard() {
           </div>
         </div>
       </section>
+
+      <RecommendedJobs />
 
       <section className="card">
         <div className="card-header">

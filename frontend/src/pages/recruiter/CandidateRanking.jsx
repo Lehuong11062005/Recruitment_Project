@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../../components/Icon';
+import PdfPreviewer from '../../components/PdfPreviewer';
 import { PIPELINE_STATUS, PIPELINE_STATUS_LABELS } from '../../constants/status';
 import { applicationService } from '../../services/applicationService';
 import { jobService } from '../../services/jobService';
@@ -506,6 +507,7 @@ function RankingWorkspace({ jobId }) {
               </div>
             </section>
           )}
+          {selected && <PdfPreviewer applicationId={activeId} fileName={`CV-${selected.full_name || activeId}.pdf`} />}
         </div>
       </div>
     </div>
