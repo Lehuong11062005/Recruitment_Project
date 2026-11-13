@@ -95,7 +95,10 @@ async def _extract_with_ai(user: User, filename: str, data: bytes) -> CVExtracti
     if user.profile is not None:
         user.profile.candidate_embedding = [float(value) for value in raw_embedding]
         user.updated_at = datetime.utcnow()
-        await user.save()
+        await user.update({"$set": {
+            "profile.candidate_embedding": user.profile.candidate_embedding,
+            "updated_at": user.updated_at,
+        }})
     return CVExtraction(
         status="DONE",
         suggested_skills=[SuggestedSkill(id=m["id"], name=m["name"]) for m in matched],
@@ -126,7 +129,9 @@ async def upload_cv(user: User, file: UploadFile) -> CVUploadResponse:
     user.profile.cv_url = new_url
     user.updated_at = datetime.utcnow()
     try:
-        await user.save()
+        await user.update({"$set": {
+            "profile": user.profile.model_dump(), "updated_at": user.updated_at,
+        }})
     except Exception:
         new_path.unlink(missing_ok=True)
         raise

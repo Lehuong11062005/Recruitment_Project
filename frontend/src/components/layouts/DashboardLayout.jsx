@@ -10,7 +10,10 @@ const PAGE_COPY = {
   '/candidate/messages': ['Tin nhắn trực tiếp', 'Trao đổi với nhà tuyển dụng.'],
   '/recruiter': ['Quản lý tin tuyển dụng', 'Theo dõi các vị trí tuyển dụng của doanh nghiệp.'],
   '/recruiter/jobs': ['Quản lý tin tuyển dụng', 'Theo dõi các vị trí tuyển dụng của doanh nghiệp.'],
-  '/admin': ['Dashboard quản trị', 'Quản lý và giám sát nền tảng.'],
+  '/admin': ['Dashboard quản trị', 'Thống kê hoạt động tuyển dụng và chấm điểm AI.'],
+  '/admin/users': ['Quản lý người dùng', 'Tìm kiếm, khóa và mở khóa tài khoản.'],
+  '/admin/companies': ['Duyệt công ty', 'Xem hồ sơ và cập nhật trạng thái kiểm duyệt doanh nghiệp.'],
+  '/admin/jobs': ['Kiểm duyệt tin tuyển dụng', 'Kiểm tra nội dung, ẩn hoặc xóa mềm tin đăng.'],
 };
 
 const ROLE_NAV = {
@@ -22,7 +25,12 @@ const ROLE_NAV = {
     { to: '/candidate/messages', label: 'Tin nhắn', icon: 'message' },
   ],
   recruiter: [{ to: '/recruiter/jobs', label: 'Tin tuyển dụng', icon: 'briefcase' }],
-  admin: [{ to: '/admin', label: 'Trung tâm quản trị', icon: 'shield', end: true }],
+  admin: [
+    { to: '/admin', label: 'Tổng quan', icon: 'grid', end: true },
+    { to: '/admin/users', label: 'Người dùng', icon: 'users' },
+    { to: '/admin/companies', label: 'Duyệt công ty', icon: 'building' },
+    { to: '/admin/jobs', label: 'Kiểm duyệt tin', icon: 'briefcase' },
+  ],
 };
 
 ROLE_NAV.recruiter.push(

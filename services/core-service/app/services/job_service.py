@@ -193,11 +193,13 @@ class JobService:
                 detail="Bạn không có quyền thay đổi trạng thái tin tuyển dụng này"
             )
         
-        job.status = status_in.status
-        job.updated_at = datetime.utcnow()
-        await job.save()
+        result = await JobPosting.find_one({"_id": job.id, "deleted_at": None}).update(
+            {"$set": {"status": status_in.status, "updated_at": datetime.now(timezone.utc)}}
+        )
+        if not result.matched_count:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
         
-        return {"message": "Cập nhật trạng thái thành công", "status": job.status}
+        return {"message": "Cập nhật trạng thái thành công", "status": status_in.status}
 
     @staticmethod
     async def validate_required_skills(required_skills: List):

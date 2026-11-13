@@ -83,7 +83,10 @@ async def update_profile(user: User, data: ProfileUpdate) -> User:
         user.profile.education = changes["education"] or []
 
     user.updated_at = datetime.utcnow()
-    await user.save()
+    await user.update({"$set": {
+        "full_name": user.full_name, "phone": user.phone,
+        "profile": user.profile.model_dump(), "updated_at": user.updated_at,
+    }})
     return user
 
 
@@ -92,5 +95,5 @@ async def reset_profile(user: User) -> User:
     old_cv = user.profile.cv_url if user.profile else None
     user.profile = CandidateProfile(cv_url=old_cv)
     user.updated_at = datetime.utcnow()
-    await user.save()
+    await user.update({"$set": {"profile": user.profile.model_dump(), "updated_at": user.updated_at}})
     return user

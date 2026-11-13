@@ -1042,3 +1042,23 @@ textarea { font: inherit; resize: vertical; }
   .crr-filter { flex-direction: column; align-items: stretch; }
   .crr-filter .form-field { width: 100%; }
 }
+
+.admin-list { display: grid; gap: 16px; }
+.admin-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.admin-filters label { display: grid; flex: 1 1 145px; max-width: 280px; gap: 5px; font-weight: 600; }
+.admin-filters label:has(input) { flex-basis: 210px; }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table-wrap table { width: 100%; min-width: 620px; border-collapse: collapse; text-align: left; }
+.admin-table-wrap th,
+.admin-table-wrap td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.admin-table-wrap th { background: var(--page); color: var(--navy); }
+.admin-table-wrap td small { display: block; color: var(--text-secondary); overflow-wrap: anywhere; }
+.admin-table-wrap td:first-child { width: 27%; overflow-wrap: anywhere; }
+.admin-table-wrap summary { color: var(--primary); cursor: pointer; }
+.admin-description { max-width: 42ch; margin-block: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.admin-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr)); gap: 16px; }
+.admin-breakdown ul { display: grid; gap: 14px; margin-top: 16px; padding: 0; list-style: none; }
+.admin-breakdown li > div:first-child { display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.admin-bar { height: 8px; margin-top: 6px; background: var(--primary-soft); border-radius: 4px; }
+.admin-bar span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
