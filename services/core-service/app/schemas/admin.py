@@ -1,5 +1,10 @@
-from typing import Dict
-from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Dict, Generic, Literal, TypeVar
+
+from beanie import PydanticObjectId
+from pydantic import BaseModel, ConfigDict, Field
+
+Item = TypeVar("Item")
 
 
 class UserStatistics(BaseModel):
@@ -53,3 +58,58 @@ class AdminStatisticsResponse(BaseModel):
     jobs: JobStatistics
     applications: ApplicationStatistics
     ai_matching: AIMatchingStatistics
+
+
+class AdminPage(BaseModel, Generic[Item]):
+    items: list[Item]
+    total: int
+    page: int
+    limit: int
+
+
+class AdminUserItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PydanticObjectId
+    full_name: str
+    email: str
+    role: str
+    user_type: str | None
+    status: str
+
+
+class AdminCompanyItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PydanticObjectId
+    name: str
+    industry: str | None
+    address: str | None
+    website: str | None
+    description: str | None
+    verification_status: str
+
+
+class AdminJobItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: PydanticObjectId
+    title: str
+    description: str
+    company_id: PydanticObjectId
+    company_name: str | None = None
+    location: str | None
+    status: str
+    deleted_at: datetime | None
+
+
+class AdminUserStatusUpdate(BaseModel):
+    status: Literal["ACTIVE", "BANNED"]
+
+
+class AdminCompanyVerificationUpdate(BaseModel):
+    verification_status: Literal["VERIFIED", "REJECTED"]
+
+
+class AdminJobStatusUpdate(BaseModel):
+    status: Literal["HIDDEN", "DELETED"]
