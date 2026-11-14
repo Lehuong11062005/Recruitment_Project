@@ -41,8 +41,7 @@ class CompanyService:
         await company.insert()
 
         # Cập nhật users.company_id = company.id
-        current_user.company_id = company.id
-        await current_user.save()
+        await current_user.update({"$set": {"company_id": company.id}})
 
         return company
 
@@ -77,13 +76,10 @@ class CompanyService:
                     detail="Tên doanh nghiệp đã tồn tại"
                 )
 
-        for key, value in update_data.items():
-            setattr(company, key, value)
-
         # Đặt lại trạng thái PENDING khi cập nhật thông tin
-        company.verification_status = "PENDING"
-        company.updated_at = datetime.utcnow()
-        await company.save()
+        await company.update({"$set": {
+            **update_data, "verification_status": "PENDING", "updated_at": datetime.utcnow(),
+        }})
 
         return company
 

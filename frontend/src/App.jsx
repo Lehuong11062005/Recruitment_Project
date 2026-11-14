@@ -25,6 +25,9 @@ import CompanyProfile from './pages/recruiter/CompanyProfile';
 import CandidateRanking from './pages/recruiter/CandidateRanking';
 
 import Dashboard from './pages/admin/Dashboard';
+import ManageUsers from './pages/admin/ManageUsers';
+import ApproveCompanies from './pages/admin/ApproveCompanies';
+import ModerateJobs from './pages/admin/ModerateJobs';
 import Forbidden from './pages/common/Forbidden';
 import NotFound from './pages/common/NotFound';
 
@@ -81,6 +84,9 @@ export default function App() {
       <Route element={<PrivateRoute allowedRoles={[ROLES.ADMIN]} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="users" element={<ManageUsers />} />
+          <Route path="companies" element={<ApproveCompanies />} />
+          <Route path="jobs" element={<ModerateJobs />} />
         </Route>
       </Route>
 

@@ -1,18 +1,120 @@
 from datetime import datetime
 import math
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 import httpx
 from fastapi import HTTPException, status
 from app.core.config import settings
+from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
+from app.models.user import User
 from app.schemas.job import JobCreateSchema, JobUpdateSchema, JobStatusUpdateSchema
 from datetime import timezone
 
 logger = logging.getLogger(__name__)
 
 class JobService:
+    @staticmethod
+    async def get_recommendations(candidate: User) -> Dict[str, Any]:
+        candidate_vector = (
+            candidate.profile.candidate_embedding
+            if candidate.profile is not None
+            else None
+        )
+        if not candidate_vector:
+            return {
+                "items": [],
+                "message": "Tải CV hoặc cập nhật hồ sơ để nhận gợi ý việc làm phù hợp.",
+            }
+
+        valid_candidate_vector = [
+            float(value) for value in candidate_vector
+            if isinstance(value, (int, float)) and math.isfinite(value)
+        ]
+        if (
+            len(valid_candidate_vector) != len(candidate_vector)
+            or not valid_candidate_vector
+        ):
+            return {
+                "items": [],
+                "message": "Vector hồ sơ không hợp lệ; vui lòng cập nhật lại CV.",
+            }
+        candidate_norm = math.sqrt(sum(value * value for value in valid_candidate_vector))
+        if candidate_norm == 0:
+            return {"items": [], "message": "Vector hồ sơ không hợp lệ; vui lòng cập nhật lại CV."}
+
+        jobs = await JobPosting.find(
+            {"status": "OPEN", "deleted_at": None}
+        ).to_list()
+        verified_companies = await Company.find(
+            {"verification_status": "VERIFIED", "deleted_at": None}
+        ).to_list()
+        companies_by_id = {
+            str(company.id): company.name for company in verified_companies
+        }
+        candidate_skill_ids = {
+            str(skill_id) for skill_id in (candidate.profile.skills if candidate.profile else [])
+        }
+        scored: List[Tuple[float, JobPosting, List[str]]] = []
+        for job in jobs:
+            if str(job.company_id) not in companies_by_id:
+                continue
+            vector = job.job_embedding_vector
+            if not isinstance(vector, list) or len(vector) != len(valid_candidate_vector):
+                continue
+            if any(
+                not isinstance(value, (int, float)) or not math.isfinite(value)
+                for value in vector
+            ):
+                continue
+            numeric_vector = [float(value) for value in vector]
+            job_norm = math.sqrt(sum(value * value for value in numeric_vector))
+            if job_norm == 0:
+                continue
+            cosine = sum(
+                left * right
+                for left, right in zip(valid_candidate_vector, numeric_vector)
+            ) / (candidate_norm * job_norm)
+            matching_ids = [
+                str(skill_id) for skill_id in job.required_skills
+                if str(skill_id) in candidate_skill_ids
+            ]
+            scored.append((max(0.0, min(1.0, cosine)), job, matching_ids))
+
+        scored.sort(key=lambda result: result[0], reverse=True)
+        skill_docs = await SkillsTaxonomy.find_all().to_list()
+        skill_names = {str(skill.id): skill.name for skill in skill_docs}
+        items: List[Dict[str, Any]] = []
+        for cosine, job, matching_ids in scored[:5]:
+            items.append({
+                "id": str(job.id),
+                "title": job.title,
+                "description": job.description,
+                "company_id": str(job.company_id),
+                "company_name": companies_by_id.get(str(job.company_id), "Doanh nghiệp"),
+                "required_skills": [str(skill_id) for skill_id in job.required_skills],
+                "required_skill_names": [
+                    skill_names[str(skill_id)]
+                    for skill_id in job.required_skills
+                    if str(skill_id) in skill_names
+                ],
+                "matched_skills": [
+                    skill_names[skill_id]
+                    for skill_id in matching_ids
+                    if skill_id in skill_names
+                ],
+                "level": job.level,
+                "experience_required": job.experience_required,
+                "salary": job.salary,
+                "location": job.location,
+                "match_score": round(cosine * 100.0, 1),
+            })
+        return {
+            "items": items,
+            "message": "Gợi ý việc làm phù hợp nhất với hồ sơ của bạn.",
+        }
+
     @staticmethod
     async def generate_job_embedding(title: str, description: str, skills: List[str]) -> Tuple[Optional[List[float]], Optional[str]]:
         """
@@ -91,11 +193,13 @@ class JobService:
                 detail="Bạn không có quyền thay đổi trạng thái tin tuyển dụng này"
             )
         
-        job.status = status_in.status
-        job.updated_at = datetime.utcnow()
-        await job.save()
+        result = await JobPosting.find_one({"_id": job.id, "deleted_at": None}).update(
+            {"$set": {"status": status_in.status, "updated_at": datetime.now(timezone.utc)}}
+        )
+        if not result.matched_count:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
         
-        return {"message": "Cập nhật trạng thái thành công", "status": job.status}
+        return {"message": "Cập nhật trạng thái thành công", "status": status_in.status}
 
     @staticmethod
     async def validate_required_skills(required_skills: List):
@@ -149,6 +253,23 @@ class JobService:
         )
         await job.insert()
         return job
+
+    @staticmethod
+    def is_valid_embedding_dimension(
+        vector: Any,
+        expected_dim: int = 384,
+    ) -> bool:
+        """Kiểm tra vector có đúng số chiều và chỉ chứa giá trị số hữu hạn."""
+        return (
+            isinstance(vector, list)
+            and len(vector) == expected_dim
+            and all(
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                for value in vector
+            )
+        )
 
     @staticmethod
     async def update_job_with_embedding(job_id: str, job_in: JobUpdateSchema, current_user) -> JobPosting:

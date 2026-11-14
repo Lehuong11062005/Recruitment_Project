@@ -1,20 +1,25 @@
 import re
 from datetime import datetime
 from typing import Optional
+from typing import List, Literal
 
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.deps import get_current_recruiter
+from app.core.deps import get_current_candidate, get_current_recruiter
 from app.models.company import Company
 from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
+from app.models.user import User
 from app.schemas.job import (
     JobCreateSchema,
     JobStatusUpdateSchema,
     JobUpdateSchema,
 )
+from app.schemas.application import RankedApplicationItem
+from app.services.application_service import list_job_applications_ranked
+from app.services.cv_utils import CVError
 from app.services.job_service import JobService
 
 
@@ -221,6 +226,11 @@ async def search_jobs(
     }
 
 
+@router.get("/recommendations", summary="Gợi ý việc làm phù hợp với hồ sơ ứng viên")
+async def recommend_jobs(current_user: User = Depends(get_current_candidate)):
+    return await JobService.get_recommendations(current_user)
+
+
 # Keep static routes before /{job_id}.
 @router.get("/mine", summary="Danh sách tin tuyển dụng của tôi", include_in_schema=False)
 @router.get("/my-jobs", summary="Danh sách tin tuyển dụng của tôi")
@@ -387,3 +397,27 @@ async def update_managed_job_status(
         )
 
     return await JobService.update_status(job_id, status_in, current_user)
+
+
+@router.get(
+    "/{job_id}/applications",
+    response_model=List[RankedApplicationItem],
+    summary="Danh sách ứng viên xếp hạng theo điểm AI",
+)
+async def list_ranked_job_applications(
+    job_id: str,
+    pipeline_status: Optional[
+        Literal["APPLIED", "SCREENING", "INTERVIEW", "REJECTED", "HIRED"]
+    ] = Query(None),
+    min_ai_score: Optional[float] = Query(None, ge=0, le=100),
+    current_user: User = Depends(get_current_recruiter),
+):
+    try:
+        return await list_job_applications_ranked(
+            current_user,
+            job_id,
+            pipeline_status=pipeline_status,
+            min_ai_score=min_ai_score,
+        )
+    except CVError as exc:
+        raise HTTPException(exc.status_code, exc.message)

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_URL, CANDIDATE_DEMO_MODE } from '../../config/env';
+import { CANDIDATE_DEMO_MODE } from '../../config/env';
 import { DEMO_PROFILE } from '../../data/candidateDemo';
 import { candidateProfileService } from '../../services/candidateProfileService';
 import Icon from '../../components/Icon';
@@ -41,12 +41,6 @@ function profilePayload(profile) {
   };
 }
 
-function cvHref(cvUrl) {
-  if (!cvUrl) return '';
-  if (/^https?:\/\//i.test(cvUrl)) return cvUrl;
-  return `${API_URL.replace(/\/$/, '')}${cvUrl.startsWith('/') ? '' : '/'}${cvUrl}`;
-}
-
 export default function CandidateProfile() {
   const [profile, setProfile] = useState(normalizeProfile(EMPTY_PROFILE));
   const [skillsCatalog, setSkillsCatalog] = useState([]);
@@ -58,8 +52,11 @@ export default function CandidateProfile() {
   const [success, setSuccess] = useState('');
   const [cvFile, setCvFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [openingCv, setOpeningCv] = useState(false);
   const [cvError, setCvError] = useState('');
   const [cvSuccess, setCvSuccess] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -175,6 +172,53 @@ export default function CandidateProfile() {
     }
   };
 
+  const exportProfile = async () => {
+    setExportError('');
+    setExporting(true);
+    try {
+      const pdf = await candidateProfileService.exportProfilePDF();
+      const url = URL.createObjectURL(pdf);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ho-so-ung-vien.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setExportError('Không tải được hồ sơ PDF. Vui lòng thử lại.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const openCurrentCV = async () => {
+    setCvError('');
+    if (CANDIDATE_DEMO_MODE) {
+      setCvSuccess('Dữ liệu demo không có file PDF CV lưu trên máy chủ.');
+      return;
+    }
+    setOpeningCv(true);
+    try {
+      const blob = await candidateProfileService.getCurrentCVBlob();
+      const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'cv_ung_vien.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (openError) {
+      setCvError(errorText(openError));
+    } finally {
+      setOpeningCv(false);
+    }
+  };
+
   const addSuggestedSkill = (skill) => {
     setProfile((current) => current.skills.includes(skill.id) ? current : { ...current, skills: [...current.skills, skill.id] });
     setSuggestedSkills((current) => current.filter((item) => item.id !== skill.id));
@@ -185,7 +229,18 @@ export default function CandidateProfile() {
   return (
     <div className="content-stack">
       <section className="card">
-        <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>{CANDIDATE_DEMO_MODE && <span className="badge badge-amber">DỮ LIỆU DEMO</span>}</div>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><span className="badge badge-blue">Hồ sơ ứng viên</span><h2 className="display-title">Thông tin cá nhân</h2><p className="muted">Cập nhật thông tin, kỹ năng, kinh nghiệm, học vấn và CV.</p></div>
+          {CANDIDATE_DEMO_MODE ? (
+            <span className="badge badge-amber">DỮ LIỆU DEMO</span>
+          ) : (
+            <button type="button" className="btn btn-secondary" disabled={exporting || saving || !profile.user_id} onClick={exportProfile}>
+              <Icon name="file" size={16} />{exporting ? 'Đang tạo PDF…' : 'Tải xuống CV (PDF)'}
+            </button>
+          )}
+        </div>
+        {!CANDIDATE_DEMO_MODE && <p className="muted small mt-2">File PDF dùng thông tin đã lưu trên hồ sơ.</p>}
+        {exportError && <p className="field-error mt-2" role="alert">{exportError}</p>}
       </section>
       {error && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {notice && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{notice}</div>}
@@ -225,7 +280,16 @@ export default function CandidateProfile() {
 
       <section className="card">
         <div className="card-header"><div><h3 className="section-title">CV ứng viên</h3><p className="muted small">Upload CV PDF để lưu vào profile và nhận gợi ý kỹ năng từ AI.</p></div><Icon name="file" size={21} /></div>
-        {profile.cv_url ? <p className="mb-4 text-sm"><a className="text-blue-700 underline" href={cvHref(profile.cv_url)} target="_blank" rel="noreferrer">Mở CV hiện tại</a></p> : <p className="muted mb-4 text-sm">Chưa có CV được lưu.</p>}
+        {profile.cv_url ? (
+          <div className="mb-4">
+            <button type="button" onClick={openCurrentCV} disabled={openingCv} className="btn btn-secondary">
+              <Icon name="file" size={15} />
+              {openingCv ? 'Đang mở CV…' : 'Mở CV hiện tại'}
+            </button>
+          </div>
+        ) : (
+          <p className="muted mb-4 text-sm">Chưa có CV được lưu.</p>
+        )}
         <label className="block"><span className="mb-1 block text-sm font-semibold">Chọn CV (PDF, tối đa 5 MB)</span><input type="file" accept=".pdf,application/pdf" onChange={(event) => { setCvFile(event.target.files?.[0] || null); setCvError(''); setCvSuccess(''); }} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />{cvFile && <span className="muted mt-1 block text-xs">Đã chọn: {cvFile.name}</span>}</label>
         {cvError && <div role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{cvError}</div>}
         {cvSuccess && <div role="status" className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{cvSuccess}</div>}

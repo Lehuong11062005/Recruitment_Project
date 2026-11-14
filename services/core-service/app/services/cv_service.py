@@ -51,6 +51,15 @@ def _url_to_path(user_id, cv_url: Optional[str]) -> Optional[Path]:
     return path
 
 
+def get_my_cv_file_path(user: User) -> Path:
+    """Trả về đường dẫn file PDF CV hiện tại trong hồ sơ ứng viên."""
+    cv_url = user.profile.cv_url if user.profile else None
+    path = _url_to_path(user.id, cv_url)
+    if path is None or not path.is_file():
+        raise CVError(404, "Không tìm thấy file CV trong hồ sơ")
+    return path
+
+
 async def _extract_with_ai(user: User, filename: str, data: bytes) -> CVExtraction:
     """Gọi AI Service; lỗi AI không làm hỏng việc upload CV."""
     if not settings.AI_URL:
@@ -86,7 +95,10 @@ async def _extract_with_ai(user: User, filename: str, data: bytes) -> CVExtracti
     if user.profile is not None:
         user.profile.candidate_embedding = [float(value) for value in raw_embedding]
         user.updated_at = datetime.utcnow()
-        await user.save()
+        await user.update({"$set": {
+            "profile.candidate_embedding": user.profile.candidate_embedding,
+            "updated_at": user.updated_at,
+        }})
     return CVExtraction(
         status="DONE",
         suggested_skills=[SuggestedSkill(id=m["id"], name=m["name"]) for m in matched],
@@ -117,7 +129,9 @@ async def upload_cv(user: User, file: UploadFile) -> CVUploadResponse:
     user.profile.cv_url = new_url
     user.updated_at = datetime.utcnow()
     try:
-        await user.save()
+        await user.update({"$set": {
+            "profile": user.profile.model_dump(), "updated_at": user.updated_at,
+        }})
     except Exception:
         new_path.unlink(missing_ok=True)
         raise

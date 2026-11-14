@@ -29,6 +29,9 @@ class Application(Document):
     ai_match_score: Optional[float] = None
     matching_version: Optional[str] = "v1.0"
     ai_analysis: Optional[AIAnalysis] = None
+    ai_status: Optional[str] = None
+    ai_analyzed_at: Optional[datetime] = None
+    ai_error: Optional[str] = None
     applied_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

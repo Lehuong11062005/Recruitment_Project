@@ -243,7 +243,7 @@ export default function ManageJobs() {
                   <td>{Number(job.applications_count || 0).toLocaleString('vi-VN')}</td>
                   <td><select aria-label={`Trạng thái tin ${job.title}`} className="input job-status-select" value={job.status} disabled={updatingId === getJobId(job)} onChange={(event) => handleStatusChange(job, event.target.value)}><option value="OPEN">OPEN</option><option value="CLOSED">CLOSED</option><option value="HIDDEN">HIDDEN</option></select></td>
                   <td>{job.created_at ? new Date(job.created_at).toLocaleDateString('vi-VN') : '—'}</td>
-                  <td><button className="btn btn-secondary" type="button" onClick={() => openEditForm(job)}>Chỉnh sửa</button></td>
+                  <td><button className="btn btn-secondary" type="button" onClick={() => openEditForm(job)}>Chỉnh sửa</button> <Link className="btn btn-secondary" to={`/recruiter/jobs/${getJobId(job)}/applications`}>Xem ứng viên</Link></td>
                 </tr>
               ))}
               {loading && <tr><td colSpan="7">Đang tải danh sách tin tuyển dụng...</td></tr>}

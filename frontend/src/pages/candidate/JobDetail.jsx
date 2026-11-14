@@ -6,6 +6,7 @@ import { applicationService } from '../../services/applicationService';
 import { aiMatchingService } from '../../services/aiMatchingService';
 import { jobService } from '../../services/jobService';
 import Icon from '../../components/Icon';
+import MatchResultBox from '../../components/MatchResultBox';
 
 const MAX_CV_SIZE = 5 * 1024 * 1024;
 const errorText = (error) => error?.message || 'Đã xảy ra lỗi, vui lòng thử lại.';
@@ -162,7 +163,7 @@ export default function JobDetail() {
   };
 
   const runAnalysis = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
     setAnalysisError('');
     setAnalysisResult(null);
     const validation = validatePdf(analysisFile);
@@ -199,7 +200,6 @@ export default function JobDetail() {
   if (loadError || !job) return <div className="content-stack"><Link className="inline-link" to="/candidate/jobs">← Quay lại danh sách việc làm</Link><section role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-900"><h2 className="text-lg font-bold">Chưa thể hiển thị chi tiết việc làm</h2><p className="mt-2">{loadError || 'Không tìm thấy tin tuyển dụng.'}</p></section></div>;
 
   const requiredSkills = (Array.isArray(job.required_skills) ? job.required_skills : []).map(displaySkill).filter(Boolean);
-  const aiAnalysis = analysisResult?.ai_analysis || {};
   const resolvedCvUrl = job.cv_url ? (/^https?:\/\//i.test(job.cv_url) ? job.cv_url : `${API_URL.replace(/\/$/, '')}${job.cv_url}`) : '';
 
   return (
@@ -231,14 +231,7 @@ export default function JobDetail() {
           <div className="card-header"><div><span className="badge badge-purple">UC-C6</span><h3 className="section-title mt-2">AI Matching</h3><p className="muted small">Tách nội dung CV PDF rồi so khớp với JD bằng AI Service.</p></div><span className="rounded-lg bg-violet-50 p-3 text-violet-700"><Icon name="spark" size={22} /></span></div>
           <form onSubmit={runAnalysis} className="space-y-4"><label className="block"><span className="mb-1 block text-sm font-semibold">CV để phân tích (PDF, tối đa 5 MB)</span><input type="file" accept=".pdf,application/pdf" onChange={(event) => changeFile(event, 'ai')} className="block w-full rounded-lg border border-slate-300 p-2 text-sm" />{analysisFile && <span className="muted mt-1 block text-xs">Đã chọn: {analysisFile.name}</span>}</label><button type="submit" disabled={analysisLoading} className="btn btn-secondary full-button disabled:opacity-50">{analysisLoading ? 'Đang phân tích…' : 'Phân tích độ phù hợp'}</button></form>
           {analysisError && <div role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{analysisError}</div>}
-          {analysisResult && <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            {analysisResult.demo && <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">Kết quả demo — không phải AI thật</p>}
-            <div className="flex items-center gap-4"><div className="score-ring score-large"><span>{Math.round(Number(analysisResult.ai_match_score || 0))}%</span></div><div><p className="font-bold text-slate-900">Độ phù hợp CV – JD</p><p className="muted mt-1 text-xs">Phiên bản: {analysisResult.matching_version || 'Không có thông tin'}</p></div></div>
-            {aiAnalysis.recommendation && <p className="mt-3 text-sm text-slate-700">{aiAnalysis.recommendation}</p>}
-            {aiAnalysis.matched?.length > 0 && <div className="mt-3"><p className="text-sm font-semibold text-emerald-800">Kỹ năng phù hợp</p><div className="mt-1 flex flex-wrap gap-1">{aiAnalysis.matched.map((skill, index) => <span key={skill.id || skill.name || index} className="badge badge-green">{displaySkill(skill)}</span>)}</div></div>}
-            {aiAnalysis.missing?.length > 0 && <div className="mt-3"><p className="text-sm font-semibold text-amber-800">Kỹ năng còn thiếu</p><div className="mt-1 flex flex-wrap gap-1">{aiAnalysis.missing.map((skill, index) => <span key={skill.id || skill.name || index} className="badge badge-amber">{displaySkill(skill)}</span>)}</div></div>}
-            {aiAnalysis.score_breakdown && <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold text-blue-700">Xem điểm chi tiết</summary><pre className="mt-2 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-white">{JSON.stringify(aiAnalysis.score_breakdown, null, 2)}</pre></details>}
-          </div>}
+          {analysisResult && <MatchResultBox result={analysisResult} demo={Boolean(analysisResult.demo)} onRetry={runAnalysis} retrying={analysisLoading} />}
         </section>
       </div>
       {applyModalOpen && (

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from beanie import PydanticObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SkillRef(BaseModel):
@@ -12,8 +12,10 @@ class SkillRef(BaseModel):
 
 
 class AIAnalysisResponse(BaseModel):
-    matched: List[SkillRef] = []      # kỹ năng CV có và JD yêu cầu
-    missing: List[SkillRef] = []      # kỹ năng JD yêu cầu nhưng CV thiếu
+    matched: List[SkillRef] = Field(default_factory=list)      # kỹ năng CV có và JD yêu cầu
+    missing: List[SkillRef] = Field(default_factory=list)      # kỹ năng JD yêu cầu nhưng CV thiếu
+    matched_skills: List[SkillRef] = Field(default_factory=list)
+    missing_skills: List[SkillRef] = Field(default_factory=list)
     score_breakdown: Optional[Dict[str, float]] = None
     recommendation: Optional[str] = None
 
@@ -24,10 +26,13 @@ class ApplicationResponse(BaseModel):
     candidate_id: PydanticObjectId
     cv_url: str
     pipeline_status: str
-    ai_status: Literal["DONE", "SKIPPED", "FAILED"]   # AI chấm điểm được hay chưa
+    ai_status: Literal[
+        "DONE", "SKIPPED", "FAILED", "PENDING", "PROCESSING"
+    ]   # AI chấm điểm được hay chưa
     ai_match_score: Optional[float] = None
     matching_version: Optional[str] = None
     ai_analysis: Optional[AIAnalysisResponse] = None
+    ai_analyzed_at: Optional[datetime] = None
     parsed_text_preview: Optional[str] = None          # 300 ký tự đầu để kiểm tra nhanh
     applied_at: datetime
     job_title: Optional[str] = None
@@ -59,3 +64,23 @@ class ApplicationDetailResponse(ApplicationResponse):
     cv_parsed_text: Optional[str] = None
     recruiter_note: Optional[str] = None     # chỉ HR mới thấy
     status_history: List[StatusHistoryItem] = []
+
+
+class RankedSkillItem(BaseModel):
+    id: PydanticObjectId
+    name: str
+
+
+class RankedApplicationItem(BaseModel):
+    id: PydanticObjectId
+    candidate_id: PydanticObjectId
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+    ai_match_score: Optional[float] = None
+    ai_status: Optional[str] = None
+    pipeline_status: str
+    applied_at: datetime
+    matched_skills: List[RankedSkillItem] = Field(default_factory=list)
+    missing_skills: List[RankedSkillItem] = Field(default_factory=list)
+    cv_preview_url: str

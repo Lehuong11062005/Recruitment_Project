@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import math
 from datetime import datetime
 from typing import List
@@ -20,6 +21,7 @@ from app.services.cv_service import read_limited
 from app.services.cv_utils import CVError, match_skill_names, validate_pdf
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class AIPreviewResponse(BaseModel):
@@ -124,6 +126,8 @@ async def preview_ai_matching(
         ai_analysis=AIAnalysisResponse(
             matched=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.matched],
             missing=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.missing],
+            matched_skills=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.matched],
+            missing_skills=[SkillRef(id=item, category=next((s.get("category") for s in taxonomy if s["id"] == item), None), name=next((s["name"] for s in taxonomy if s["id"] == item), "")) for item in analysis.missing],
             score_breakdown=analysis.score_breakdown,
             recommendation=analysis.recommendation,
         ),
@@ -143,9 +147,18 @@ async def _owned_application(application_id: str, user: User) -> Application:
     is_recruiter_owner = (
         user.user_type == "RECRUITER" and job is not None and job.recruiter_id == user.id
     )
-    if not is_candidate_owner and not is_recruiter_owner:
+    if not is_candidate_owner and not is_recruiter_owner and user.role != "ADMIN":
         raise HTTPException(status_code=403, detail="Bạn không có quyền xem hồ sơ ứng tuyển này")
     return app
+
+
+def _application_ai_status(app: Application) -> str:
+    status_value = getattr(app, "ai_status", None)
+    if status_value == "COMPLETED":
+        return "DONE"
+    if status_value in {"FAILED", "PENDING", "PROCESSING", "SKIPPED", "DONE"}:
+        return status_value
+    return "DONE" if app.ai_match_score is not None else "FAILED"
 
 
 @router.get(
@@ -162,51 +175,83 @@ async def get_ai_analysis(
 
 
 @router.post(
+    "/{application_id}/retry",
+    response_model=ApplicationResponse,
+    summary="Phân tích lại CV ứng tuyển bằng AI",
+)
+@router.post(
     "/applications/{application_id}/retry",
     response_model=ApplicationResponse,
     summary="Phân tích lại CV ứng tuyển bằng AI",
+    include_in_schema=False,
 )
 async def retry_ai_analysis(
     application_id: str,
     user: User = Depends(get_current_user),
 ):
     app = await _owned_application(application_id, user)
-    cv_path = CV_DIR / str(app.candidate_id) / app.cv_url.rsplit("/", 1)[-1]
-    if not cv_path.is_file():
-        raise HTTPException(status_code=404, detail="Không tìm thấy file CV đã lưu")
+    if _application_ai_status(app) != "FAILED":
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ có thể phân tích lại hồ sơ đang ở trạng thái FAILED",
+        )
 
-    data = await asyncio.to_thread(cv_path.read_bytes)
-    max_bytes = settings.CV_MAX_SIZE_MB * 1024 * 1024
-    try:
-        validate_pdf(cv_path.name, data, max_bytes)
-    except CVError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.message)
-
-    job = await JobPosting.get(app.job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
-    candidate = await User.get(app.candidate_id)
-    experience_years = (
-        application_service._candidate_experience_years(candidate)
-        if candidate is not None
-        else 0.0
-    )
-    parsed, result, skills = await _analyze_file(
-        job,
-        cv_path.name,
-        data,
-        experience_years,
-    )
-    taxonomy, id_to_name = _taxonomy_data(skills)
-    app.parsed_text = parsed["parsed_text"]
-    app.embedding_vector = [
-        float(value)
-        for value in result.get("embedding_vector", parsed["embedding_vector"])
-        if isinstance(value, (int, float)) and math.isfinite(value)
-    ]
-    app.ai_match_score = float(result["ai_match_score"])
-    app.matching_version = result["matching_version"]
-    app.ai_analysis = _map_analysis(result, taxonomy)
+    app.ai_status = "PROCESSING"
+    app.ai_error = None
     app.updated_at = datetime.utcnow()
     await app.save()
-    return await application_service._application_response(app)
+    try:
+        cv_path = CV_DIR / str(app.candidate_id) / app.cv_url.rsplit("/", 1)[-1]
+        if not cv_path.is_file():
+            raise HTTPException(status_code=404, detail="Không tìm thấy file CV đã lưu")
+
+        data = await asyncio.to_thread(cv_path.read_bytes)
+        max_bytes = settings.CV_MAX_SIZE_MB * 1024 * 1024
+        try:
+            validate_pdf(cv_path.name, data, max_bytes)
+        except CVError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+        job = await JobPosting.get(app.job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
+        candidate = await User.get(app.candidate_id)
+        experience_years = (
+            application_service._candidate_experience_years(candidate)
+            if candidate is not None
+            else 0.0
+        )
+        parsed, result, skills = await _analyze_file(
+            job,
+            cv_path.name,
+            data,
+            experience_years,
+        )
+        taxonomy, _ = _taxonomy_data(skills)
+        app.parsed_text = parsed["parsed_text"]
+        app.embedding_vector = [
+            float(value)
+            for value in result.get("embedding_vector", parsed["embedding_vector"])
+            if isinstance(value, (int, float)) and math.isfinite(value)
+        ]
+        app.ai_match_score = float(result["ai_match_score"])
+        app.matching_version = result["matching_version"]
+        app.ai_analysis = _map_analysis(result, taxonomy)
+        app.ai_status = "DONE"
+        app.ai_analyzed_at = datetime.utcnow()
+        app.ai_error = None
+        app.updated_at = datetime.utcnow()
+        await app.save()
+        return await application_service._application_response(app)
+    except Exception as exc:
+        logger.exception("AI retry failed for application %s", application_id)
+        app.ai_status = "FAILED"
+        app.ai_error = str(exc)[:1000]
+        app.updated_at = datetime.utcnow()
+        await app.save()
+        if isinstance(exc, HTTPException):
+            raise
+        raise HTTPException(
+            status_code=503,
+            detail="Không thể phân tích lại hồ sơ bằng AI; vui lòng thử lại sau",
+        ) from exc

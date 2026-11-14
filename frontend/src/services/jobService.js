@@ -88,9 +88,10 @@ export const jobService = {
   getRecommendations() {
     requireJobsEnabled();
 
+    // Backend đã có GET /api/v1/jobs/recommendations (Top 5, trả { items, message }).
     const path = getConfiguredPath(
-      import.meta.env.VITE_JOBS_RECOMMENDATIONS_PATH,
-      'Chưa cấu hình VITE_JOBS_RECOMMENDATIONS_PATH; chưa gửi request.'
+      import.meta.env.VITE_JOBS_RECOMMENDATIONS_PATH || '/api/v1/jobs/recommendations',
+      'Chưa cấu hình VITE_JOBS_RECOMMENDATIONS_PATH.'
     );
 
     return api.get(path);
@@ -126,5 +127,13 @@ export const jobService = {
   // Skills API
   getSkills(params = {}) {
     return api.get('/api/v1/skills', { params });
+  },
+
+  // danh sách ứng viên của tin, đã xếp hạng theo ai_match_score giảm dần.
+  getJobApplications(jobId, params = {}) {
+    return api.get(
+      `/api/v1/jobs/${encodeURIComponent(String(jobId))}/applications`,
+      { params }
+    );
   },
 };
