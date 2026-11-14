@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.database import init_db
 from app.core.storage import ensure_upload_dirs
-from app.routers import auth, users, skills, applications, companies, jobs, ai_analysis
+from app.routers import auth, users, skills, applications, companies, jobs, ai_analysis, notifications, chat
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +23,9 @@ app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Jobs"])
 app.include_router(applications.router, prefix="/api/v1/applications", tags=["Applications"])
 app.include_router(companies.router, prefix="/api/v1/companies", tags=["Company Profile"])
 app.include_router(ai_analysis.router, prefix="/api/v1/ai-analysis", tags=["AI Analysis"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(chat.router, prefix="/api/v1/conversations", tags=["Chat"])
+app.include_router(chat.ws_router, tags=["Chat WebSocket"])  # ws://localhost:8001/ws/chat/{conversation_id}?token={jwt}
 
 # Không mount /uploads công khai nữa: CV chỉ xem qua GET /api/v1/applications/{id}/cv (có phân quyền)
 ensure_upload_dirs()

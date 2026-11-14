@@ -19,6 +19,17 @@ class Settings:
     AI_URL: str = os.getenv("AI_URL") or "http://localhost:8002"
     AI_TIMEOUT_SECONDS: float = float(os.getenv("AI_TIMEOUT_SECONDS", "30"))
 
+    # --- Task 9.3: gửi email thông báo qua SMTP (để trống SMTP_HOST = tắt gửi email, chỉ log) ---
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT") or "587")      # 587 = STARTTLS, 465 = SSL
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM") or os.getenv("SMTP_USER", "")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").strip().lower() in ("1", "true", "yes")
+    SMTP_TIMEOUT_SECONDS: float = float(os.getenv("SMTP_TIMEOUT_SECONDS") or "15")
+    # Dùng để dựng link trong email (ví dụ http://localhost:5173/candidate/applications/<id>)
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL") or "http://localhost:5173"
+
 
 settings = Settings()
 
