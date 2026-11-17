@@ -98,6 +98,374 @@ function SkillTags({ skills, tone, emptyText }) {
   );
 }
 
+// ================= đổi trạng thái hồ sơ, lịch phỏng vấn, ghi chú nội bộ =================
+const toInputDateTime = (value) => (typeof value === 'string' ? value.slice(0, 16) : '');
+
+const scheduleDraftFrom = (schedule) => ({
+  time: toInputDateTime(schedule?.time),
+  location: schedule?.location || '',
+  link: schedule?.link || '',
+});
+
+const draftFromDetail = (detail) => ({
+  status: detail?.pipeline_status || '',
+  note: detail?.recruiter_note || '',
+  ...scheduleDraftFrom(detail?.interview_schedule),
+});
+
+const totalExperienceYears = (experience) => (Array.isArray(experience) ? experience : [])
+  .reduce((sum, item) => {
+    const years = Number(item?.years);
+    return Number.isFinite(years) && years > 0 ? sum + years : sum;
+  }, 0);
+
+const validateSchedule = (draft) => {
+  if (!draft.time) return 'Vui lòng chọn ngày giờ phỏng vấn.';
+  if (Number.isNaN(new Date(draft.time).getTime())) return 'Ngày giờ phỏng vấn không hợp lệ.';
+  if (!draft.location.trim() && !draft.link.trim()) return 'Nhập địa điểm hoặc link phỏng vấn online.';
+  return '';
+};
+
+// datetime-local trả "YYYY-MM-DDTHH:mm"; backend nhận ISO nên bổ sung giây.
+const scheduleBody = (draft) => ({
+  time: draft.time.length === 16 ? `${draft.time}:00` : draft.time,
+  location: draft.location.trim(),
+  link: draft.link.trim(),
+});
+
+/**
+ * Dữ liệu + hành động cho phần HR duyệt hồ sơ đang chọn.
+ * store[id] = { detail, error, draft }: nhớ theo id để chuyển qua lại không mất nội dung đang nhập.
+ */
+function useApplicationReview(activeId, onSaved) {
+  const [store, setStore] = useState({});
+  const [busy, setBusy] = useState('');
+  const [feedback, setFeedback] = useState({ id: '', kind: '', type: '', text: '' });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalError, setModalError] = useState('');
+
+  const entry = activeId ? store[activeId] : undefined;
+  const persistedStatus = entry?.detail?.pipeline_status || '';
+
+  useEffect(() => {
+    if (!activeId || store[activeId]) return undefined;
+    let active = true;
+    safely(() => applicationService.getApplicationDetail(activeId))
+      .then((detail) => {
+        if (active) setStore((prev) => ({ ...prev, [activeId]: { detail, error: '', draft: draftFromDetail(detail) } }));
+      })
+      .catch((error) => {
+        if (active) {
+          setStore((prev) => ({
+            ...prev,
+            [activeId]: { detail: null, draft: null, error: error?.message || 'Không thể tải chi tiết hồ sơ.' },
+          }));
+        }
+      });
+    return () => { active = false; };
+  }, [activeId, store]);
+
+  const reload = () => {
+    setStore((prev) => {
+      const next = { ...prev };
+      delete next[activeId];
+      return next;
+    });
+  };
+
+  const patchDraft = (patch) => {
+    setStore((prev) => {
+      const current = prev[activeId];
+      if (!current?.draft) return prev;
+      return { ...prev, [activeId]: { ...current, draft: { ...current.draft, ...patch } } };
+    });
+  };
+
+  const say = (id, kind, type, text) => setFeedback({ id, kind, type, text });
+
+  const submit = async (kind, payload, successText) => {
+    const id = activeId;
+    if (!id || busy) return false;
+    setBusy(kind);
+    setFeedback({ id: '', kind: '', type: '', text: '' });
+    try {
+      const result = await applicationService.updateApplicationStatus(id, payload);
+      setStore((prev) => {
+        const current = prev[id];
+        if (!current?.detail) return prev;
+        const detail = {
+          ...current.detail,
+          pipeline_status: result.pipeline_status,
+          recruiter_note: result.recruiter_note,
+          interview_schedule: result.interview_schedule,
+          status_history: result.status_history,
+        };
+        // Chỉ đồng bộ phần vừa lưu, giữ nguyên những ô HR đang nhập dở.
+        const draftPatch = { status: result.pipeline_status };
+        if ('recruiter_note' in payload) draftPatch.note = result.recruiter_note || '';
+        if (payload.interview_schedule) Object.assign(draftPatch, scheduleDraftFrom(result.interview_schedule));
+        return { ...prev, [id]: { ...current, detail, draft: { ...current.draft, ...draftPatch } } };
+      });
+      onSaved(id, result);
+      say(id, kind, 'success', successText);
+      return true;
+    } catch (error) {
+      say(id, kind, 'error', error?.message || 'Không thể cập nhật hồ sơ này.');
+      return false;
+    } finally {
+      setBusy('');
+    }
+  };
+
+  // Chọn trạng thái trong dropdown; chọn INTERVIEW thì mở modal nhập lịch phỏng vấn.
+  const chooseStatus = (status) => {
+    patchDraft({ status });
+    setFeedback({ id: '', kind: '', type: '', text: '' });
+    if (status === 'INTERVIEW' && persistedStatus !== 'INTERVIEW') {
+      setModalError('');
+      setModalOpen(true);
+    }
+  };
+
+  const cancelModal = () => {
+    setModalOpen(false);
+    setModalError('');
+    if (persistedStatus) patchDraft({ status: persistedStatus });
+  };
+
+  const confirmModal = () => {
+    const problem = entry?.draft ? validateSchedule(entry.draft) : '';
+    if (problem) {
+      setModalError(problem);
+      return;
+    }
+    setModalError('');
+    setModalOpen(false);
+  };
+
+  const saveStatus = () => {
+    const draft = entry?.draft;
+    if (!draft || draft.status === persistedStatus) return false;
+    if (draft.status === 'INTERVIEW') {
+      if (validateSchedule(draft)) {
+        setModalError('');
+        setModalOpen(true);
+        return false;
+      }
+      return submit('status', { pipeline_status: 'INTERVIEW', interview_schedule: scheduleBody(draft) }, 'Đã cập nhật trạng thái và gửi lịch phỏng vấn cho ứng viên.');
+    }
+    return submit('status', { pipeline_status: draft.status }, 'Đã cập nhật trạng thái hồ sơ và thông báo cho ứng viên.');
+  };
+
+  const sendSchedule = () => {
+    const draft = entry?.draft;
+    if (!draft) return false;
+    const problem = validateSchedule(draft);
+    if (problem) {
+      say(activeId, 'schedule', 'error', problem);
+      return false;
+    }
+    return submit('schedule', { pipeline_status: 'INTERVIEW', interview_schedule: scheduleBody(draft) }, 'Đã gửi lịch phỏng vấn cho ứng viên.');
+  };
+
+  const saveNote = () => {
+    const draft = entry?.draft;
+    if (!draft || !persistedStatus) return false;
+    return submit('note', { pipeline_status: persistedStatus, recruiter_note: draft.note.trim() }, 'Đã lưu ghi chú nội bộ.');
+  };
+
+  return {
+    entry,
+    loading: Boolean(activeId) && !entry,
+    persistedStatus,
+    busy,
+    feedback: feedback.id === activeId ? feedback : { id: '', kind: '', type: '', text: '' },
+    modalOpen,
+    modalError,
+    reload,
+    patchDraft,
+    chooseStatus,
+    cancelModal,
+    confirmModal,
+    saveStatus,
+    sendSchedule,
+    saveNote,
+  };
+}
+
+function ReviewFeedback({ feedback, kinds }) {
+  if (!feedback.text || !kinds.includes(feedback.kind)) return null;
+  return (
+    <div className={`alert-box ${feedback.type === 'success' ? 'alert-success' : 'alert-error'} crr-feedback`} role={feedback.type === 'success' ? 'status' : 'alert'}>
+      {feedback.text}
+    </div>
+  );
+}
+
+function InterviewModal({ draft, error, onChange, onCancel, onConfirm }) {
+  useEffect(() => {
+    const onKeyDown = (event) => { if (event.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+      <div className="modal-card crr-modal" role="dialog" aria-modal="true" aria-labelledby="crr-modal-title">
+        <h3 id="crr-modal-title">Lịch phỏng vấn</h3>
+        <p className="muted small">Ứng viên sẽ nhận thông báo kèm lịch này khi bạn bấm “Lưu trạng thái”.</p>
+        <label className="form-field">
+          Ngày giờ
+          <input className="input" type="datetime-local" autoFocus value={draft.time} onChange={(event) => onChange({ time: event.target.value })} />
+        </label>
+        <label className="form-field">
+          Địa điểm
+          <input className="input" placeholder="Phòng họp tầng 5 hoặc Phỏng vấn trực tuyến" value={draft.location} onChange={(event) => onChange({ location: event.target.value })} />
+        </label>
+        <label className="form-field">
+          Link online
+          <input className="input" inputMode="url" placeholder="https://meet.google.com/abc-defg-hij" value={draft.link} onChange={(event) => onChange({ link: event.target.value })} />
+        </label>
+        {error && <div className="alert-box alert-error" role="alert">{error}</div>}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel}>Hủy</button>
+          <button type="button" className="btn btn-primary" onClick={onConfirm}>Xác nhận lịch</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Thẻ đầu cột phải: thông tin ứng viên, điểm AI và đổi pipeline_status.
+function CandidateStatusCard({ selected, score, review }) {
+  const { entry, loading, persistedStatus, busy, feedback } = review;
+  const detail = entry?.detail || null;
+  const draft = entry?.draft || null;
+  const candidate = detail?.candidate || null;
+  const years = totalExperienceYears(candidate?.experience);
+  const position = (candidate?.experience || []).find((item) => item?.position)?.position;
+  const subtitle = [
+    position,
+    candidate?.location,
+    years > 0 ? `${Number(years.toFixed(1))} năm kinh nghiệm` : '',
+  ].filter(Boolean).join(' · ');
+  const contact = [selected.email, selected.phone].filter(Boolean).join(' · ');
+  const dirty = Boolean(draft) && draft.status !== persistedStatus;
+
+  return (
+    <section className="card crr-cand" aria-label="Thông tin ứng viên và trạng thái hồ sơ">
+      <div className="crr-cand-info">
+        <span className="avatar avatar-blue crr-cand-avatar" aria-hidden="true">{initials(selected.full_name)}</span>
+        <div className="crr-cand-text">
+          <h3>{selected.full_name || 'Ứng viên chưa có tên'}</h3>
+          {loading && <span className="crr-skel crr-skel-line crr-cand-skel" aria-busy="true" />}
+          {subtitle && <span>{subtitle}</span>}
+          {contact && <span>{contact}</span>}
+        </div>
+      </div>
+
+      <ScoreRing score={score} large />
+
+      <div className="crr-cand-status">
+        <label htmlFor="crr-pipeline-status">pipeline_status</label>
+        <div className="crr-cand-controls">
+          <select
+            id="crr-pipeline-status"
+            className="input"
+            value={draft?.status || selected.pipeline_status || ''}
+            disabled={!draft || Boolean(busy)}
+            onChange={(event) => review.chooseStatus(event.target.value)}
+          >
+            {STATUS_ORDER.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+          <button type="button" className="btn btn-primary" disabled={!dirty || Boolean(busy)} onClick={review.saveStatus}>
+            {busy === 'status' ? 'Đang lưu...' : 'Lưu trạng thái'}
+          </button>
+        </div>
+        {draft?.status === 'INTERVIEW' && dirty && !validateSchedule(draft) && (
+          <span className="crr-hint">Đã nhập lịch phỏng vấn. Bấm “Lưu trạng thái” để gửi cho ứng viên.</span>
+        )}
+        <ReviewFeedback feedback={feedback} kinds={['status']} />
+      </div>
+
+      {entry?.error && (
+        <div className="crr-alert crr-cand-error" role="alert">
+          <Icon name="warning" size={18} />
+          <span><strong>Không tải được chi tiết hồ sơ</strong>{entry.error}</span>
+          <button type="button" className="btn btn-secondary" onClick={review.reload}>Tải lại</button>
+        </div>
+      )}
+
+      {review.modalOpen && draft && (
+        <InterviewModal
+          draft={draft}
+          error={review.modalError}
+          onChange={review.patchDraft}
+          onCancel={review.cancelModal}
+          onConfirm={review.confirmModal}
+        />
+      )}
+    </section>
+  );
+}
+
+// Thẻ cuối cột phải: lịch phỏng vấn (time, location, link) và recruiter_note.
+function InterviewNoteCard({ review }) {
+  const { entry, loading, busy, feedback } = review;
+  const draft = entry?.draft || null;
+  const noteDirty = Boolean(draft) && draft.note.trim() !== (entry?.detail?.recruiter_note || '').trim();
+
+  return (
+    <section className="card crr-schedule" aria-labelledby="crr-schedule-title">
+      <h3 id="crr-schedule-title">Lịch phỏng vấn &amp; ghi chú nội bộ</h3>
+
+      {loading && <div className="crr-skel crr-skel-block" aria-busy="true" />}
+
+      {draft && (
+        <>
+          <div className="crr-schedule-grid">
+            <label className="form-field">
+              Ngày giờ
+              <input className="input" type="datetime-local" value={draft.time} onChange={(event) => review.patchDraft({ time: event.target.value })} />
+            </label>
+            <label className="form-field">
+              Địa điểm
+              <input className="input" placeholder="Phỏng vấn trực tuyến" value={draft.location} onChange={(event) => review.patchDraft({ location: event.target.value })} />
+            </label>
+            <label className="form-field">
+              Link online
+              <input className="input" inputMode="url" placeholder="https://meet.google.com/abc-defg-hij" value={draft.link} onChange={(event) => review.patchDraft({ link: event.target.value })} />
+            </label>
+            <button type="button" className="btn btn-primary" disabled={Boolean(busy)} onClick={review.sendSchedule}>
+              <Icon name="calendar" size={16} /> {busy === 'schedule' ? 'Đang gửi...' : 'Gửi lịch phỏng vấn'}
+            </button>
+          </div>
+          <span className="crr-hint">Gửi lịch sẽ chuyển hồ sơ sang INTERVIEW và thông báo cho ứng viên.</span>
+          <ReviewFeedback feedback={feedback} kinds={['schedule']} />
+
+          <label className="form-field crr-note-field">
+            recruiter_note
+            <textarea
+              className="input textarea"
+              rows={4}
+              maxLength={5000}
+              placeholder="Ghi chú nội bộ, ứng viên không nhìn thấy."
+              value={draft.note}
+              onChange={(event) => review.patchDraft({ note: event.target.value })}
+            />
+          </label>
+          <div>
+            <button type="button" className="btn btn-secondary" disabled={!noteDirty || Boolean(busy)} onClick={review.saveNote}>
+              {busy === 'note' ? 'Đang lưu...' : 'Lưu ghi chú nội bộ'}
+            </button>
+          </div>
+          <ReviewFeedback feedback={feedback} kinds={['note']} />
+        </>
+      )}
+    </section>
+  );
+}
+
 function RankingWorkspace({ jobId }) {
   const [jobTitle, setJobTitle] = useState('');
   const [candidates, setCandidates] = useState([]);
@@ -181,6 +549,13 @@ function RankingWorkspace({ jobId }) {
   const selected = visible.find((item) => item.id === selectedId) || visible[0] || null;
   const activeId = selected ? selected.id : '';
   const filtersActive = statusFilter !== 'ALL' || minScore !== '' || search.trim() !== '';
+
+  //  đổi trạng thái, lịch phỏng vấn, ghi chú nội bộ của hồ sơ đang chọn.
+  const review = useApplicationReview(activeId, (id, result) => {
+    setCandidates((prev) => prev.map((item) => (String(item.id) === id
+      ? { ...item, pipeline_status: result.pipeline_status }
+      : item)));
+  });
 
   // Chi tiết phân tích AI của ứng viên đang chọn; lưu theo id để chuyển qua lại không gọi lại API.
   useEffect(() => {
@@ -394,6 +769,7 @@ function RankingWorkspace({ jobId }) {
         </section>
 
         <div className="crr-review">
+          {selected && <CandidateStatusCard selected={selected} score={score} review={review} />}
           {!selected ? (
             <section className="card crr-ai">
               <div className="empty-state">
@@ -508,6 +884,7 @@ function RankingWorkspace({ jobId }) {
             </section>
           )}
           {selected && <PdfPreviewer applicationId={activeId} fileName={`CV-${selected.full_name || activeId}.pdf`} />}
+          {selected && <InterviewNoteCard review={review} />}
         </div>
       </div>
     </div>

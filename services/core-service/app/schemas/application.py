@@ -55,15 +55,17 @@ class CandidateBrief(BaseModel):
 class StatusHistoryItem(BaseModel):
     status: str
     time: datetime
+    changed_by: Optional[PydanticObjectId] = None   # ai đổi trạng thái (HR)
 
 
 class ApplicationDetailResponse(ApplicationResponse):
     """GET /applications/{id}: ApplicationResponse + hồ sơ ứng viên + văn bản CV đầy đủ."""
     candidate: CandidateBrief
-    cv_preview_url: str                      # /api/v1/applications/{id}/cv (stream PDF có phân quyền)
+    cv_preview_url: str                      # /api/v1/applications/{id}/cv 
     cv_parsed_text: Optional[str] = None
     recruiter_note: Optional[str] = None     # chỉ HR mới thấy
     status_history: List[StatusHistoryItem] = []
+    interview_schedule: Optional[Dict[str, Any]] = None   #  { time, location, link }
 
 
 class RankedSkillItem(BaseModel):
@@ -84,3 +86,29 @@ class RankedApplicationItem(BaseModel):
     matched_skills: List[RankedSkillItem] = Field(default_factory=list)
     missing_skills: List[RankedSkillItem] = Field(default_factory=list)
     cv_preview_url: str
+
+PipelineStatus = Literal["APPLIED", "SCREENING", "INTERVIEW", "HIRED", "REJECTED"]
+
+
+class InterviewScheduleIn(BaseModel):
+    """Lịch phỏng vấn HR gửi lên: { time, location, link }."""
+    time: datetime
+    location: Optional[str] = Field(default=None, max_length=300)
+    link: Optional[str] = Field(default=None, max_length=500)
+
+
+class ApplicationStatusUpdate(BaseModel):
+    """Body của PATCH /api/v1/applications/{application_id}/status."""
+    pipeline_status: PipelineStatus
+    recruiter_note: Optional[str] = Field(default=None, max_length=5000)
+    interview_schedule: Optional[InterviewScheduleIn] = None
+
+
+class ApplicationStatusResponse(BaseModel):
+    id: PydanticObjectId
+    pipeline_status: PipelineStatus
+    recruiter_note: Optional[str] = None
+    interview_schedule: Optional[Dict[str, Any]] = None
+    status_history: List[StatusHistoryItem] = Field(default_factory=list)
+    updated_at: datetime
+

@@ -3,11 +3,14 @@ from typing import List, Optional
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks
 from fastapi.responses import FileResponse
 
 from app.core.deps import get_current_candidate, get_current_user
+from app.core.deps import get_current_recruiter
 from app.models.user import User
 from app.schemas.application import ApplicationDetailResponse, ApplicationResponse
+from app.schemas.application import ApplicationStatusResponse, ApplicationStatusUpdate
 from app.services import application_service
 from app.services.cv_utils import CVError
 from app.routers.ai_analysis import _owned_application
@@ -102,3 +105,26 @@ async def apply_to_job(
         return await application_service.apply_job(user, oid, file, parsed_required_skills)
     except CVError as e:
         raise HTTPException(e.status_code, e.message)
+
+
+@router.patch(
+    "/{application_id}/status",
+    response_model=ApplicationStatusResponse,
+    summary="HR cập nhật trạng thái đơn ứng tuyển, ghi chú nội bộ và lịch phỏng vấn (UC-R6, Task 9.1)",
+)
+async def update_application_status(
+    application_id: str,
+    payload: ApplicationStatusUpdate,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_recruiter),
+):
+    """Chỉ RECRUITER sở hữu tin tuyển dụng mới được gọi. Ghi status_history và báo cho ứng viên."""
+    try:
+        oid = PydanticObjectId(application_id)
+    except Exception:
+        raise HTTPException(422, "application_id không hợp lệ")
+    try:
+        return await application_service.update_application_status(user, oid, payload, background_tasks)
+    except CVError as exc:
+        raise HTTPException(exc.status_code, exc.message)
+

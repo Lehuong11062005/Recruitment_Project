@@ -9,6 +9,7 @@ import logging
 import math
 import uuid
 from datetime import datetime
+from datetime import timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,7 @@ import httpx
 from bson.errors import InvalidId
 from beanie import PydanticObjectId
 from fastapi import UploadFile
+from fastapi import BackgroundTasks
 from pymongo.errors import DuplicateKeyError
 
 from app.core.config import settings
@@ -29,6 +31,8 @@ from app.schemas.application import (
     AIAnalysisResponse,
     ApplicationDetailResponse,
     ApplicationResponse,
+    ApplicationStatusResponse,
+    ApplicationStatusUpdate,
     CandidateBrief,
     RankedApplicationItem,
     RankedSkillItem,
@@ -36,6 +40,7 @@ from app.schemas.application import (
     StatusHistoryItem,
 )
 from app.services.cv_service import _url_to_path, read_limited
+from app.services import notification_service
 from app.services.cv_utils import CVError, map_skill_names, validate_pdf
 
 AI_PARSE_PATH = "/api/v1/ai/parse-cv"
@@ -318,6 +323,7 @@ async def get_application_detail(
         cv_parsed_text=app.parsed_text,
         recruiter_note=app.recruiter_note if is_hr else None,
         status_history=[StatusHistoryItem(status=h.status, time=h.time) for h in app.status_history],
+        interview_schedule=app.interview_schedule,
     )
 
 
@@ -534,3 +540,85 @@ async def list_job_applications_ranked(
         )
         for row in rows
     ]
+
+
+VIETNAM_TZ = timezone(timedelta(hours=7))
+
+
+def _to_naive_local(value: datetime) -> datetime:
+    """Lịch phỏng vấn lưu theo giờ Việt Nam (naive) để thông báo/email hiển thị đúng giờ HR nhập."""
+    if value.tzinfo is not None:
+        value = value.astimezone(VIETNAM_TZ).replace(tzinfo=None)
+    return value.replace(microsecond=0)
+
+
+def _build_interview_schedule(payload: ApplicationStatusUpdate) -> Optional[Dict[str, Any]]:
+    schedule = payload.interview_schedule
+    if schedule is None:
+        return None
+    if payload.pipeline_status != "INTERVIEW":
+        raise CVError(422, "Chỉ được gửi lịch phỏng vấn khi chuyển sang trạng thái INTERVIEW")
+    location = (schedule.location or "").strip()
+    link = (schedule.link or "").strip()
+    if not location and not link:
+        raise CVError(422, "Lịch phỏng vấn cần có địa điểm hoặc link phỏng vấn online")
+    return {"time": _to_naive_local(schedule.time), "location": location or None, "link": link or None}
+
+
+async def update_application_status(
+    user: User,
+    application_id: PydanticObjectId,
+    payload: ApplicationStatusUpdate,
+    background_tasks: Optional[BackgroundTasks] = None,
+) -> ApplicationStatusResponse:
+    """PATCH /applications/{id}/status: chỉ RECRUITER sở hữu tin tuyển dụng của đơn này.
+
+    - Đổi pipeline_status (APPLIED | SCREENING | INTERVIEW | HIRED | REJECTED).
+    - Nhận recruiter_note (ghi chú nội bộ, ứng viên không thấy) và interview_schedule { time, location, link }.
+    - Mỗi lần đổi trạng thái (hoặc gửi lịch mới) đẩy thêm 1 bản ghi { status, changed_by, time } vào status_history.
+    - Gọi notification_service để báo cho ứng viên (thông báo trong hệ thống + email).
+    """
+    app = await Application.get(application_id)
+    if app is None:
+        raise CVError(404, "Không tìm thấy hồ sơ ứng tuyển")
+    job = await JobPosting.get(app.job_id)
+    if job is None or job.deleted_at is not None:
+        raise CVError(404, "Không tìm thấy tin tuyển dụng của hồ sơ này")
+    if user.user_type != "RECRUITER" or job.recruiter_id != user.id:
+        raise CVError(403, "Bạn không có quyền cập nhật hồ sơ ứng tuyển này")
+
+    new_status = payload.pipeline_status
+    status_changed = new_status != app.pipeline_status
+    schedule = _build_interview_schedule(payload)
+    if new_status == "INTERVIEW" and status_changed and schedule is None and not app.interview_schedule:
+        raise CVError(422, "Cần nhập lịch phỏng vấn (thời gian và địa điểm hoặc link) khi chuyển sang INTERVIEW")
+
+    now = datetime.utcnow()
+    if "recruiter_note" in payload.model_fields_set:
+        app.recruiter_note = (payload.recruiter_note or "").strip() or None
+    if schedule is not None:
+        app.interview_schedule = schedule
+    if status_changed or schedule is not None:
+        app.pipeline_status = new_status
+        app.status_history.append(StatusHistory(status=new_status, changed_by=user.id, time=now))
+    app.updated_at = now
+    await app.save()
+
+    # Hàm thông báo của Cường không bao giờ raise; đổi trạng thái đã kèm lịch nên chỉ gửi 1 thông báo.
+    if status_changed:
+        await notification_service.notify_application_status(app, background_tasks, new_status)
+    elif schedule is not None:
+        await notification_service.notify_interview_schedule(app, background_tasks)
+
+    return ApplicationStatusResponse(
+        id=app.id,
+        pipeline_status=app.pipeline_status,
+        recruiter_note=app.recruiter_note,
+        interview_schedule=app.interview_schedule,
+        status_history=[
+            StatusHistoryItem(status=h.status, time=h.time, changed_by=h.changed_by)
+            for h in app.status_history
+        ],
+        updated_at=app.updated_at,
+    )
+
