@@ -61,7 +61,7 @@ class StatusHistoryItem(BaseModel):
 class ApplicationDetailResponse(ApplicationResponse):
     """GET /applications/{id}: ApplicationResponse + hồ sơ ứng viên + văn bản CV đầy đủ."""
     candidate: CandidateBrief
-    cv_preview_url: str                      # /api/v1/applications/{id}/cv 
+    cv_preview_url: str                      # /api/v1/applications/{id}/cv ((stream PDF có phân quyền)
     cv_parsed_text: Optional[str] = None
     recruiter_note: Optional[str] = None     # chỉ HR mới thấy
     status_history: List[StatusHistoryItem] = []
