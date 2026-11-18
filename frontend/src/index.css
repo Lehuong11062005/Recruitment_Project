@@ -1062,3 +1062,57 @@ textarea { font: inherit; resize: vertical; }
 .admin-breakdown li > div:first-child { display: flex; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
 .admin-bar { height: 8px; margin-top: 6px; background: var(--primary-soft); border-radius: 4px; }
 .admin-bar span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+
+/* thẻ ứng viên + pipeline_status, lịch phỏng vấn & ghi chú nội bộ */
+.crr-review { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.crr-review > .crr-cand { grid-column: 1 / -1; grid-row: 1; }
+.crr-review > section[aria-label="Xem trước CV"] { grid-column: 1; grid-row: 2; }
+.crr-review > .crr-ai { grid-column: 2; grid-row: 2; }
+.crr-review > .crr-schedule { grid-column: 1 / -1; grid-row: 3; }
+.crr-review > .crr-ai:only-child { grid-column: 1 / -1; grid-row: auto; }
+
+.crr-cand { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 28px; padding: 22px 24px; }
+.crr-cand-info { display: flex; align-items: center; gap: 16px; flex: 1 1 260px; min-width: 0; }
+.crr-cand-avatar { width: 52px; height: 52px; font-size: 13px; }
+.crr-cand-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.crr-cand-text h3 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.3px; color: var(--navy); overflow-wrap: anywhere; }
+.crr-cand-text > span { font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.crr-cand-skel { width: 180px; max-width: 100%; }
+.crr-cand-status { display: flex; flex-direction: column; gap: 7px; min-width: 0; flex: 0 1 auto; }
+.crr-cand-status > label { font-size: 12px; font-weight: 600; color: var(--navy); }
+.crr-cand-controls { display: flex; align-items: stretch; gap: 10px; }
+.crr-cand-controls .input { width: 170px; min-height: 40px; font-size: 13px; }
+.crr-cand-controls .btn { min-height: 40px; }
+.crr-cand-controls .btn:disabled { opacity: .55; cursor: not-allowed; }
+.crr-cand-error { flex: 1 1 100%; }
+.crr-hint { font-size: 11px; line-height: 1.5; color: var(--text-secondary); }
+.crr-feedback { margin: 4px 0 0; }
+
+.crr-schedule { display: flex; flex-direction: column; gap: 14px; padding: 22px 24px; }
+.crr-schedule h3 { margin: 0 0 2px; font-size: 17px; font-weight: 700; letter-spacing: -.2px; color: var(--navy); }
+.crr-schedule-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) auto; align-items: end; gap: 14px; }
+.crr-schedule-grid .btn { min-height: 42px; }
+.crr-schedule .btn:disabled { opacity: .55; cursor: not-allowed; }
+.crr-note-field .textarea { min-height: 96px; line-height: 1.6; }
+.crr-modal h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: var(--navy); }
+.crr-modal > p { margin: 0 0 16px; }
+
+@media (max-width: 1500px) {
+  .crr-review { grid-template-columns: minmax(0, 1fr); }
+  .crr-review > .crr-cand,
+  .crr-review > section[aria-label="Xem trước CV"],
+  .crr-review > .crr-ai,
+  .crr-review > .crr-schedule { grid-column: 1; grid-row: auto; }
+}
+
+@media (max-width: 1100px) {
+  .crr-schedule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crr-schedule-grid .btn { grid-column: 1 / -1; }
+}
+
+@media (max-width: 560px) {
+  .crr-cand, .crr-schedule { padding: 16px; }
+  .crr-cand-controls { flex-direction: column; }
+  .crr-cand-controls .input { width: 100%; }
+  .crr-schedule-grid { grid-template-columns: 1fr; }
+}
