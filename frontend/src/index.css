@@ -1116,3 +1116,7 @@ textarea { font: inherit; resize: vertical; }
   .crr-cand-controls .input { width: 100%; }
   .crr-schedule-grid { grid-template-columns: 1fr; }
 }
+
+/*nút "Nhắn tin cho ứng viên" */
+.crr-cand-chat { align-self: flex-start; margin-top: 6px; min-height: 36px; font-size: 13px; }
+.crr-cand-chat:disabled { opacity: .55; cursor: not-allowed; }
