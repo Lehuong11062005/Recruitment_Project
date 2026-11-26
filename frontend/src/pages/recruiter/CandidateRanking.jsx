@@ -5,6 +5,8 @@ import PdfPreviewer from '../../components/PdfPreviewer';
 import { PIPELINE_STATUS, PIPELINE_STATUS_LABELS } from '../../constants/status';
 import { applicationService } from '../../services/applicationService';
 import { jobService } from '../../services/jobService';
+import { useNavigate } from 'react-router-dom';
+import { chatService } from '../../services/chatService';
 
 const STATUS_ORDER = [
   PIPELINE_STATUS.APPLIED,
@@ -352,6 +354,34 @@ function CandidateStatusCard({ selected, score, review }) {
   const contact = [selected.email, selected.phone].filter(Boolean).join(' · ');
   const dirty = Boolean(draft) && draft.status !== persistedStatus;
 
+  // nút "Nhắn tin cho ứng viên" -> tạo/lấy hội thoại rồi mở màn hình Chat.
+  const { jobId } = useParams();
+  const navigate = useNavigate();
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState({ id: '', text: '' });
+  const openChat = async () => {
+    if (chatBusy) return;
+    const candidateId = selected.candidate_id;
+    if (!jobId || !candidateId) {
+      setChatError({ id: String(selected.id), text: 'Thiếu thông tin tin tuyển dụng hoặc ứng viên để mở hội thoại.' });
+      return;
+    }
+    setChatBusy(true);
+    setChatError({ id: '', text: '' });
+    try {
+      const conversation = await chatService.createConversation({
+        job_id: String(jobId),
+        candidate_id: String(candidateId),
+      });
+      if (!conversation?.id) throw new Error('Không nhận được mã hội thoại từ máy chủ.');
+      navigate(`/recruiter/messages/${encodeURIComponent(String(conversation.id))}`);
+    } catch (error) {
+      setChatError({ id: String(selected.id), text: error?.message || 'Không thể mở hội thoại với ứng viên này.' });
+    } finally {
+      setChatBusy(false);
+    }
+  };
+
   return (
     <section className="card crr-cand" aria-label="Thông tin ứng viên và trạng thái hồ sơ">
       <div className="crr-cand-info">
@@ -361,6 +391,12 @@ function CandidateStatusCard({ selected, score, review }) {
           {loading && <span className="crr-skel crr-skel-line crr-cand-skel" aria-busy="true" />}
           {subtitle && <span>{subtitle}</span>}
           {contact && <span>{contact}</span>}
+          <button type="button" className="btn btn-secondary crr-cand-chat" disabled={chatBusy} onClick={openChat}>
+            <Icon name="message" size={16} /> {chatBusy ? 'Đang mở hội thoại...' : 'Nhắn tin cho ứng viên'}
+          </button>
+          {chatError.text && chatError.id === String(selected.id) && (
+            <div className="alert-box alert-error crr-feedback" role="alert">{chatError.text}</div>
+          )}
         </div>
       </div>
 

@@ -77,6 +77,8 @@ export default function App() {
             path="jobs/:jobId/applications"
             element={<CandidateRanking />}
           />
+          <Route path="messages" element={<Chat />} />
+          <Route path="messages/:conversationId" element={<Chat />} />
         </Route>
       </Route>
 
