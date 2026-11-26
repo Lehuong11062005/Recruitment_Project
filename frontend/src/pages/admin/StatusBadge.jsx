@@ -10,7 +10,8 @@ const STATUS = {
 };
 
 export default function StatusBadge({ value }) {
-  const [label, color] = STATUS[value] || [value, 'gray'];
+  const normalized = typeof value === 'string' ? value.trim() : value;
+  const [label, color] = STATUS[normalized] || [normalized, 'gray'];
   return <span className={`badge badge-${color}`}>{label}</span>;
 }
 

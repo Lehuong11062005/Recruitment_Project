@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from beanie import Document, PydanticObjectId
 from pydantic import Field
+from pymongo import ASCENDING, IndexModel
 
 class Conversation(Document):
     job_id: Optional[PydanticObjectId] = None       # FK tham chiếu job_postings
@@ -13,6 +14,11 @@ class Conversation(Document):
     class Settings:
         name = "conversations"
         indexes = [
+            IndexModel(
+                [("job_id", ASCENDING), ("candidate_id", ASCENDING)],
+                unique=True,
+                name="unique_job_candidate_conversation",
+            ),
             [("candidate_id", 1)],
             [("recruiter_id", 1)],
         ]

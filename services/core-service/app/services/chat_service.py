@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from beanie import PydanticObjectId
 from beanie.operators import In, Or
+from pymongo.errors import DuplicateKeyError
 
 from app.models.application import Application
 from app.models.chat import Conversation, Message
@@ -53,6 +54,14 @@ async def get_or_create_conversation(
         raise ChatError(404, "Không tìm thấy tin tuyển dụng")
 
     if user.user_type == "CANDIDATE":
+        if candidate_id is not None and candidate_id != user.id:
+            raise ChatError(403, "Ứng viên chỉ được tham gia hội thoại của chính mình")
+        if job.status != "OPEN":
+            has_applied = await Application.find_one(
+                Application.job_id == job_id, Application.candidate_id == user.id
+            )
+            if has_applied is None:
+                raise ChatError(403, "Tin tuyển dụng không còn mở cho ứng viên chưa nộp hồ sơ")
         cand_id = user.id                       # ứng viên chỉ được tạo phòng cho chính mình
     elif user.user_type == "RECRUITER":
         if job.recruiter_id != user.id:
@@ -76,7 +85,15 @@ async def get_or_create_conversation(
     )
     if conv is None:
         conv = Conversation(job_id=job_id, candidate_id=cand_id, recruiter_id=job.recruiter_id)
-        await conv.insert()
+        try:
+            await conv.insert()
+        except DuplicateKeyError:
+            existing = await Conversation.find_one(
+                Conversation.job_id == job_id, Conversation.candidate_id == cand_id
+            )
+            if existing is not None:
+                return existing
+            raise
     return conv
 
 

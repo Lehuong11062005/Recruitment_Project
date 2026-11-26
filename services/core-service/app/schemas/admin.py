@@ -112,4 +112,4 @@ class AdminCompanyVerificationUpdate(BaseModel):
 
 
 class AdminJobStatusUpdate(BaseModel):
-    status: Literal["HIDDEN", "DELETED"]
+    status: Literal["OPEN", "CLOSED", "HIDDEN", "DELETED"]

@@ -55,7 +55,7 @@ def test_admin_statistics_aggregates_all_metrics(client, monkeypatch):
     jobs = [
         SimpleNamespace(status="OPEN", deleted_at=None),
         SimpleNamespace(status="OPEN", deleted_at=None),
-        SimpleNamespace(status="CLOSED", deleted_at=None),
+        SimpleNamespace(status="CLOSED ", deleted_at=None),
         SimpleNamespace(status="HIDDEN", deleted_at=None),
     ]
     applications = [

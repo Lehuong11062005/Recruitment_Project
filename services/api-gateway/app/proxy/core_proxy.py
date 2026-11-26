@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 import httpx
 
 from app.config import settings
@@ -23,14 +24,20 @@ async def proxy_core(path: str, request: Request):
     headers.pop("host", None)
 
     # Chuyen tiep request, bao gom query params.
-    async with httpx.AsyncClient() as client:
-        response = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            params=request.query_params,
-            content=body,
-            timeout=60.0,
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                params=request.query_params,
+                content=body,
+                timeout=60.0,
+            )
+    except httpx.RequestError:
+        return JSONResponse(
+            status_code=502,
+            content={"detail": "Core Service hiện không phản hồi."},
         )
     # Preserve file download and cache directives from Core.
     response_headers = {

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 import httpx
 
 from app.config import settings
@@ -16,14 +17,20 @@ async def proxy_ai(path: str, request: Request):
     headers.pop("host", None)
 
     # 3. Chuyển tiếp toàn bộ method, query params và body
-    async with httpx.AsyncClient() as client:
-        response = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            params=request.query_params,
-            content=body,
-            timeout=60.0,
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.request(
+                method=request.method,
+                url=url,
+                headers=headers,
+                params=request.query_params,
+                content=body,
+                timeout=60.0,
+            )
+    except httpx.RequestError:
+        return JSONResponse(
+            status_code=502,
+            content={"detail": "AI Service hiện không phản hồi."},
         )
 
     # 4. Trả nguyên status code, content và headers về cho client/frontend

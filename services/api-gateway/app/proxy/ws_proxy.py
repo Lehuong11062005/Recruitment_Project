@@ -47,11 +47,13 @@ async def proxy_core_websocket(websocket: WebSocket, path: str):
     if auth_header:
         forward_headers["Authorization"] = auth_header
 
-    await websocket.accept()
-
+    accepted = False
     try:
         upstream_cm = await connect_upstream_ws(target_url, forward_headers)
         async with upstream_cm as upstream:
+            await websocket.accept()
+            accepted = True
+
             async def client_to_upstream():
                 try:
                     while True:
@@ -73,9 +75,18 @@ async def proxy_core_websocket(websocket: WebSocket, path: str):
                             await websocket.send_bytes(data)
                         else:
                             await websocket.send_text(str(data))
+                    close_code = getattr(upstream, "close_code", None)
+                    close_reason = getattr(upstream, "close_reason", None) or ""
+                    if close_code is not None:
+                        try:
+                            await websocket.close(code=close_code, reason=close_reason)
+                        except RuntimeError:
+                            pass
                 except ConnectionClosed as exc:
+                    code = exc.rcvd.code if exc.rcvd else 1000
+                    reason = (exc.rcvd.reason if exc.rcvd else "") or ""
                     try:
-                        await websocket.close(code=exc.rcvd.code if exc.rcvd else 1000)
+                        await websocket.close(code=code, reason=reason)
                     except RuntimeError:
                         pass
 
@@ -92,6 +103,8 @@ async def proxy_core_websocket(websocket: WebSocket, path: str):
             await asyncio.gather(*done, return_exceptions=True)
     except Exception:
         try:
+            if not accepted:
+                await websocket.accept()
             await websocket.close(code=1011, reason="Core Service WebSocket unavailable")
         except RuntimeError:
             pass

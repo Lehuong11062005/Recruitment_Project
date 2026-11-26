@@ -128,24 +128,32 @@ async def _user_from_token(token: str) -> Optional[User]:
 
 @ws_router.websocket("/ws/chat/{conversation_id}")
 async def chat_websocket(websocket: WebSocket, conversation_id: str, token: str = Query(default="")):
-    await websocket.accept()   # accept trước rồi mới close để frontend đọc được mã lỗi 44xx
-
-    user = await _user_from_token(token)
-    if user is None:
-        await websocket.close(code=4401, reason="Unauthorized")
-        return
+    room: Optional[str] = None
+    accepted = False
     try:
-        conv = await chat_service.get_conversation_for_user(user, PydanticObjectId(conversation_id))
-    except ChatError:
-        await websocket.close(code=4404, reason="Conversation not found")
-        return
-    except Exception:
-        await websocket.close(code=4404, reason="Invalid conversation id")
-        return
+        user = await _user_from_token(token)
+        if user is None:
+            await websocket.accept()
+            accepted = True
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
+        try:
+            conv = await chat_service.get_conversation_for_user(user, PydanticObjectId(conversation_id))
+        except ChatError:
+            await websocket.accept()
+            accepted = True
+            await websocket.close(code=4404, reason="Conversation not found")
+            return
+        except Exception:
+            await websocket.accept()
+            accepted = True
+            await websocket.close(code=4404, reason="Invalid conversation id")
+            return
 
-    room = str(conv.id)
-    manager.connect(room, websocket)
-    try:
+        room = str(conv.id)
+        await websocket.accept()
+        accepted = True
+        manager.connect(room, websocket)
         while True:
             raw = await websocket.receive_text()
             try:
@@ -187,9 +195,11 @@ async def chat_websocket(websocket: WebSocket, conversation_id: str, token: str 
         pass
     except Exception:  # noqa: BLE001
         logger.exception("Lỗi WebSocket chat (phòng %s)", room)
-        try:
-            await websocket.close(code=1011)
-        except Exception:  # noqa: BLE001
-            pass
+        if accepted:
+            try:
+                await websocket.close(code=1011)
+            except Exception:  # noqa: BLE001
+                pass
     finally:
-        manager.disconnect(room, websocket)
+        if room is not None:
+            manager.disconnect(room, websocket)

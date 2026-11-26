@@ -18,7 +18,7 @@ import JobList from './pages/candidate/JobList';
 import JobDetail from './pages/candidate/JobDetail';
 import MyApplications from './pages/candidate/MyApplications';
 import ApplicationDetail from './pages/candidate/ApplicationDetail';
-import Chat from './pages/candidate/Chat';
+import ChatPage from './pages/common/ChatPage';
 
 import ManageJobs from './pages/recruiter/ManageJobs';
 import CompanyProfile from './pages/recruiter/CompanyProfile';
@@ -54,8 +54,10 @@ export default function App() {
             path="applications/:applicationId"
             element={<ApplicationDetail />}
           />
-          <Route path="messages" element={<Chat />} />
-          <Route path="messages/:conversationId" element={<Chat />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
+          <Route path="messages" element={<ChatPage />} />
+          <Route path="messages/:conversationId" element={<ChatPage />} />
         </Route>
       </Route>
 
@@ -77,8 +79,10 @@ export default function App() {
             path="jobs/:jobId/applications"
             element={<CandidateRanking />}
           />
-          <Route path="messages" element={<Chat />} />
-          <Route path="messages/:conversationId" element={<Chat />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
+          <Route path="messages" element={<ChatPage />} />
+          <Route path="messages/:conversationId" element={<ChatPage />} />
         </Route>
       </Route>
 

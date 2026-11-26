@@ -16,6 +16,7 @@ export default function ManageUsers() {
   return (
     <AdminList
       label="Danh sách người dùng"
+      tableClass="admin-table-users"
       load={adminService.listUsers}
       fields={FIELDS}
       searchLabel="Tìm theo tên hoặc email"
@@ -24,22 +25,35 @@ export default function ManageUsers() {
         const banned = item.status === 'BANNED';
         return (
           <>
-            <td><strong>{item.full_name}</strong><small>{item.email}</small></td>
+            <td>
+              <strong>{item.full_name}</strong>
+              <small>{item.email}</small>
+            </td>
             <td>{ROLES[item.role] || item.role}</td>
             <td>{USER_TYPES[item.user_type] || '—'}</td>
-            <td><StatusBadge value={item.status} /></td>
             <td>
-              {item.id === user?.id ? <small>Tài khoản của bạn</small> : (
-                <button
-                  type="button"
-                  className={`btn btn-secondary ${banned ? '' : 'danger-text'}`}
-                  disabled={busy}
-                  onClick={() => runAction(
-                    () => adminService.updateUserStatus(item.id, banned ? 'ACTIVE' : 'BANNED'),
-                    banned ? null : `Khóa tài khoản ${item.email}?`,
-                  )}
-                >{banned ? 'Mở khóa' : 'Khóa'}</button>
-              )}
+              <StatusBadge value={item.status} />
+            </td>
+            <td>
+              <div className="admin-actions">
+                {item.id === user?.id ? (
+                  <span className="badge badge-blue">Tài khoản của bạn</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={`btn btn-secondary ${banned ? '' : 'danger-text'}`}
+                    disabled={busy}
+                    onClick={() =>
+                      runAction(
+                        () => adminService.updateUserStatus(item.id, banned ? 'ACTIVE' : 'BANNED'),
+                        banned ? null : `Khóa tài khoản ${item.email}?`
+                      )
+                    }
+                  >
+                    {banned ? 'Mở khóa' : 'Khóa'}
+                  </button>
+                )}
+              </div>
             </td>
           </>
         );

@@ -42,7 +42,7 @@ export default function CandidateDashboard() {
             <span className="muted small">Theo dõi các hồ sơ đã gửi.</span>
             <span className="inline-link">Theo dõi hồ sơ <Icon name="chevron" size={15} /></span>
           </Link>
-          <Link to="/candidate/messages" className="shortcut-card">
+          <Link to="/candidate/chat" className="shortcut-card">
             <span className="stat-icon stat-green"><Icon name="message" /></span>
             <strong>Tin nhắn</strong>
             <span className="muted small">Trao đổi với nhà tuyển dụng.</span>

@@ -2,8 +2,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core.database import init_db
 from app.core.storage import ensure_upload_dirs
-from app.routers import auth, users, skills, applications, companies, jobs, ai_analysis, notifications, chat
-from app.routers import auth, users, skills, applications, companies, jobs, ai_analysis, admin
+from app.routers import (
+    admin,
+    ai_analysis,
+    applications,
+    auth,
+    chat,
+    companies,
+    jobs,
+    notifications,
+    skills,
+    users,
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

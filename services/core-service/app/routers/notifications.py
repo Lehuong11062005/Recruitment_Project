@@ -30,7 +30,13 @@ async def list_notifications(
     conditions = [Notification.user_id == user.id]
     if unread_only:
         conditions.append(Notification.is_read == False)  # noqa: E712
-    items = await Notification.find(*conditions).sort("-created_at").skip(skip).limit(limit).to_list()
+    items = (
+        await Notification.find(*conditions)
+        .sort([("created_at", -1), ("_id", -1)])
+        .skip(skip)
+        .limit(limit)
+        .to_list()
+    )
     return [_to_response(n) for n in items]
 
 

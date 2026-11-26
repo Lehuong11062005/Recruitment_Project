@@ -81,11 +81,15 @@ async def update_user_status(
 
 @router.get("/companies", response_model=AdminPage[AdminCompanyItem])
 async def list_companies(
+    q: str = Query("", max_length=254),
     verification_status: Literal["PENDING", "VERIFIED", "REJECTED"] | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    filters = {"deleted_at": None}
+    filters: dict = {"deleted_at": None}
+    if q.strip():
+        term = {"$regex": re.escape(q.strip()), "$options": "i"}
+        filters["$or"] = [{"name": term}, {"industry": term}, {"address": term}]
     if verification_status is not None:
         filters["verification_status"] = verification_status
     return await _list_page(Company, filters, page, limit)
@@ -98,11 +102,15 @@ async def verify_company(company_id: PydanticObjectId, payload: AdminCompanyVeri
 
 @router.get("/jobs", response_model=AdminPage[AdminJobItem])
 async def list_jobs(
+    q: str = Query("", max_length=254),
     status: Literal["OPEN", "CLOSED", "HIDDEN"] | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
 ):
-    filters = {"deleted_at": None}
+    filters: dict = {"deleted_at": None}
+    if q.strip():
+        term = {"$regex": re.escape(q.strip()), "$options": "i"}
+        filters["$or"] = [{"title": term}, {"location": term}]
     if status is not None:
         filters["status"] = status
     result = await _list_page(JobPosting, filters, page, limit)
@@ -121,7 +129,12 @@ async def list_jobs(
 
 @router.patch("/jobs/{job_id}/status", response_model=AdminJobItem)
 async def moderate_job(job_id: PydanticObjectId, payload: AdminJobStatusUpdate):
-    changes = {"status": "HIDDEN"}
     if payload.status == "DELETED":
-        changes["deleted_at"] = datetime.now(timezone.utc)
-    return await _update_record(JobPosting, job_id, changes, "Không tìm thấy tin tuyển dụng.")
+        changes = {"status": "HIDDEN", "deleted_at": datetime.now(timezone.utc)}
+    else:
+        changes = {"status": payload.status}
+    updated = await _update_record(JobPosting, job_id, changes, "Không tìm thấy tin tuyển dụng.")
+    company = await Company.find_one({"_id": updated.company_id, "deleted_at": None})
+    return AdminJobItem.model_validate(updated).model_copy(
+        update={"company_name": company.name if company else None}
+    )

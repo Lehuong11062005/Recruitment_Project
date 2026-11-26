@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Literal, Optional
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field
 
+from app.schemas.notification import UTCDatetime
+
 
 class SkillRef(BaseModel):
     id: PydanticObjectId
@@ -20,12 +22,40 @@ class AIAnalysisResponse(BaseModel):
     recommendation: Optional[str] = None
 
 
+class StatusHistoryItem(BaseModel):
+    status: str
+    time: UTCDatetime
+    changed_by: Optional[PydanticObjectId] = None   # ai đổi trạng thái (HR / Candidate khi nộp)
+
+
+class ApplicationJobBrief(BaseModel):
+    id: PydanticObjectId
+    title: str
+    location: Optional[str] = None
+    level: Optional[str] = None
+    salary: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+    is_deleted: bool = False
+
+
+class ApplicationCompanyBrief(BaseModel):
+    id: PydanticObjectId
+    name: str
+    logo_url: Optional[str] = None
+    industry: Optional[str] = None
+    address: Optional[str] = None
+    verification_status: Optional[str] = None
+    is_deleted: bool = False
+
+
 class ApplicationResponse(BaseModel):
     id: PydanticObjectId
     job_id: PydanticObjectId
     candidate_id: PydanticObjectId
     cv_url: str
     pipeline_status: str
+    status_history: List[StatusHistoryItem] = Field(default_factory=list)
+    interview_schedule: Optional[Dict[str, Any]] = None
     ai_status: Literal[
         "DONE", "SKIPPED", "FAILED", "PENDING", "PROCESSING"
     ]   # AI chấm điểm được hay chưa
@@ -35,8 +65,11 @@ class ApplicationResponse(BaseModel):
     ai_analyzed_at: Optional[datetime] = None
     parsed_text_preview: Optional[str] = None          # 300 ký tự đầu để kiểm tra nhanh
     applied_at: datetime
+    updated_at: Optional[datetime] = None
     job_title: Optional[str] = None
     company_name: Optional[str] = None
+    job: Optional[ApplicationJobBrief] = None
+    company: Optional[ApplicationCompanyBrief] = None
 
 
 class CandidateBrief(BaseModel):
@@ -52,20 +85,12 @@ class CandidateBrief(BaseModel):
     education: List[Dict[str, Any]] = []
 
 
-class StatusHistoryItem(BaseModel):
-    status: str
-    time: datetime
-    changed_by: Optional[PydanticObjectId] = None   # ai đổi trạng thái (HR)
-
-
 class ApplicationDetailResponse(ApplicationResponse):
     """GET /applications/{id}: ApplicationResponse + hồ sơ ứng viên + văn bản CV đầy đủ."""
     candidate: CandidateBrief
     cv_preview_url: str                      # /api/v1/applications/{id}/cv (stream PDF có phân quyền)
     cv_parsed_text: Optional[str] = None
     recruiter_note: Optional[str] = None     # chỉ HR mới thấy
-    status_history: List[StatusHistoryItem] = []
-    interview_schedule: Optional[Dict[str, Any]] = None   #  { time, location, link }
 
 
 class RankedSkillItem(BaseModel):

@@ -374,7 +374,7 @@ function CandidateStatusCard({ selected, score, review }) {
         candidate_id: String(candidateId),
       });
       if (!conversation?.id) throw new Error('Không nhận được mã hội thoại từ máy chủ.');
-      navigate(`/recruiter/messages/${encodeURIComponent(String(conversation.id))}`);
+      navigate(`/recruiter/chat/${encodeURIComponent(String(conversation.id))}`);
     } catch (error) {
       setChatError({ id: String(selected.id), text: error?.message || 'Không thể mở hội thoại với ứng viên này.' });
     } finally {
@@ -412,7 +412,11 @@ function CandidateStatusCard({ selected, score, review }) {
             disabled={!draft || Boolean(busy)}
             onChange={(event) => review.chooseStatus(event.target.value)}
           >
-            {STATUS_ORDER.map((status) => <option key={status} value={status}>{status}</option>)}
+            {STATUS_ORDER.map((status) => (
+              <option key={status} value={status}>
+                {PIPELINE_STATUS_LABELS[status]} ({status})
+              </option>
+            ))}
           </select>
           <button type="button" className="btn btn-primary" disabled={!dirty || Boolean(busy)} onClick={review.saveStatus}>
             {busy === 'status' ? 'Đang lưu...' : 'Lưu trạng thái'}
@@ -445,15 +449,29 @@ function CandidateStatusCard({ selected, score, review }) {
   );
 }
 
-// Thẻ cuối cột phải: lịch phỏng vấn (time, location, link) và recruiter_note.
+// Thẻ cuối cột phải: lịch phỏng vấn (time, location, link), recruiter_note và status_history.
 function InterviewNoteCard({ review }) {
   const { entry, loading, busy, feedback } = review;
   const draft = entry?.draft || null;
+  const history = Array.isArray(entry?.detail?.status_history) ? entry.detail.status_history : [];
   const noteDirty = Boolean(draft) && draft.note.trim() !== (entry?.detail?.recruiter_note || '').trim();
+
+  const formatHistoryTime = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
 
   return (
     <section className="card crr-schedule" aria-labelledby="crr-schedule-title">
-      <h3 id="crr-schedule-title">Lịch phỏng vấn &amp; ghi chú nội bộ</h3>
+      <h3 id="crr-schedule-title">Lịch phỏng vấn, ghi chú nội bộ &amp; lịch sử trạng thái</h3>
 
       {loading && <div className="crr-skel crr-skel-block" aria-busy="true" />}
 
@@ -480,7 +498,7 @@ function InterviewNoteCard({ review }) {
           <ReviewFeedback feedback={feedback} kinds={['schedule']} />
 
           <label className="form-field crr-note-field">
-            recruiter_note
+            Ghi chú nội bộ (recruiter_note)
             <textarea
               className="input textarea"
               rows={4}
@@ -496,6 +514,24 @@ function InterviewNoteCard({ review }) {
             </button>
           </div>
           <ReviewFeedback feedback={feedback} kinds={['note']} />
+
+          <div className="crr-history-block">
+            <h4 className="crr-block-title">Lịch sử thay đổi trạng thái ({history.length})</h4>
+            {history.length === 0 ? (
+              <p className="crr-none">Chưa có bản ghi lịch sử trạng thái.</p>
+            ) : (
+              <ol className="status-history-list">
+                {history.map((item, idx) => (
+                  <li key={`${item.status}-${item.time || idx}`} className="status-history-item">
+                    <span className={`badge ${STATUS_BADGE[item.status] || 'badge-gray'}`}>
+                      {PIPELINE_STATUS_LABELS[item.status] || item.status}
+                    </span>
+                    <span className="status-history-time">{formatHistoryTime(item.time)}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </>
       )}
     </section>

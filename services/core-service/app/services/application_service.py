@@ -29,7 +29,9 @@ from app.models.skill import SkillsTaxonomy
 from app.models.user import User
 from app.schemas.application import (
     AIAnalysisResponse,
+    ApplicationCompanyBrief,
     ApplicationDetailResponse,
+    ApplicationJobBrief,
     ApplicationResponse,
     ApplicationStatusResponse,
     ApplicationStatusUpdate,
@@ -215,16 +217,63 @@ def _to_response(
         )
     raw_status = getattr(app, "ai_status", None) or ai_status
     normalized_status = "DONE" if raw_status == "COMPLETED" else raw_status
+    history = [
+        StatusHistoryItem(
+            status=h.status,
+            time=h.time,
+            changed_by=getattr(h, "changed_by", None),
+        )
+        for h in (getattr(app, "status_history", None) or [])
+    ]
     return ApplicationResponse(
-        id=app.id, job_id=app.job_id, candidate_id=app.candidate_id, cv_url=app.cv_url,
+        id=app.id,
+        job_id=app.job_id,
+        candidate_id=app.candidate_id,
+        cv_url=app.cv_url,
         pipeline_status=app.pipeline_status,
+        status_history=history,
+        interview_schedule=getattr(app, "interview_schedule", None),
         ai_status=normalized_status,
-        ai_match_score=app.ai_match_score, matching_version=app.matching_version,
+        ai_match_score=app.ai_match_score,
+        matching_version=app.matching_version,
         ai_analysis=analysis,
         ai_analyzed_at=getattr(app, "ai_analyzed_at", None),
         parsed_text_preview=(app.parsed_text or "")[:300] or None,
         applied_at=app.applied_at,
+        updated_at=getattr(app, "updated_at", None),
     )
+
+
+def _attach_job_and_company(
+    response: ApplicationResponse,
+    job: Optional[JobPosting],
+    company: Optional[Company],
+) -> ApplicationResponse:
+    if job is not None:
+        job_deleted = getattr(job, "deleted_at", None) is not None
+        response.job_title = job.title
+        response.job = ApplicationJobBrief(
+            id=job.id,
+            title=job.title,
+            location=getattr(job, "location", None),
+            level=getattr(job, "level", None),
+            salary=getattr(job, "salary", None),
+            status="DELETED" if job_deleted else getattr(job, "status", None),
+            is_deleted=job_deleted,
+        )
+    if company is not None:
+        company_deleted = getattr(company, "deleted_at", None) is not None
+        response.company_name = company.name
+        response.company = ApplicationCompanyBrief(
+            id=company.id,
+            name=company.name,
+            logo_url=getattr(company, "logo_url", None),
+            industry=getattr(company, "industry", None),
+            address=getattr(company, "address", None),
+            verification_status=getattr(company, "verification_status", None),
+            is_deleted=company_deleted,
+        )
+    return response
 
 
 async def _application_response(app: Application) -> ApplicationResponse:
@@ -235,18 +284,46 @@ async def _application_response(app: Application) -> ApplicationResponse:
         saved_ai_status = "DONE" if app.ai_match_score is not None else "FAILED"
     response = _to_response(app, saved_ai_status, id_to_skill)
     job = await JobPosting.get(app.job_id)
-    if job is not None:
-        company = await Company.get(job.company_id)
-        response.job_title = job.title
-        response.company_name = company.name if company else None
-    return response
+    company = await Company.get(job.company_id) if job is not None else None
+    return _attach_job_and_company(response, job, company)
 
 
-async def list_candidate_applications(user: User) -> List[ApplicationResponse]:
-    applications = await Application.find(
-        Application.candidate_id == user.id
-    ).sort("-applied_at").to_list()
-    return [await _application_response(app) for app in applications]
+async def list_candidate_applications(
+    user: User,
+    skip: int = 0,
+    limit: int = 50,
+) -> List[ApplicationResponse]:
+    applications = (
+        await Application.find(Application.candidate_id == user.id)
+        .sort("-applied_at")
+        .skip(skip)
+        .limit(limit)
+        .to_list()
+    )
+    if not applications:
+        return []
+
+    skills = await SkillsTaxonomy.find_all().to_list()
+    id_to_skill, _ = _skill_maps(skills)
+
+    job_ids = list({app.job_id for app in applications})
+    jobs = await JobPosting.find({"_id": {"$in": job_ids}}).to_list() if job_ids else []
+    jobs_by_id = {j.id: j for j in jobs}
+
+    company_ids = list({j.company_id for j in jobs if getattr(j, "company_id", None) is not None})
+    companies = await Company.find({"_id": {"$in": company_ids}}).to_list() if company_ids else []
+    companies_by_id = {c.id: c for c in companies}
+
+    results: List[ApplicationResponse] = []
+    for app in applications:
+        saved_ai_status = getattr(app, "ai_status", None)
+        if saved_ai_status is None:
+            saved_ai_status = "DONE" if app.ai_match_score is not None else "FAILED"
+        resp = _to_response(app, saved_ai_status, id_to_skill)
+        job = jobs_by_id.get(app.job_id)
+        company = companies_by_id.get(job.company_id) if job is not None else None
+        results.append(_attach_job_and_company(resp, job, company))
+    return results
 
 
 async def get_candidate_application(
@@ -262,7 +339,7 @@ async def get_candidate_application(
 async def _get_authorized_application(
     user: User, application_id: PydanticObjectId
 ) -> Application:
-    """Chỉ ứng viên chủ đơn, hoặc nhà tuyển dụng cùng công ty với tin tuyển dụng, được xem.
+    """Chỉ ứng viên chủ đơn, hoặc nhà tuyển dụng sở hữu tin tuyển dụng (cùng công ty), được xem.
 
     Mọi trường hợp không đủ quyền đều trả 404 (không lộ việc đơn có tồn tại hay không).
     """
@@ -275,7 +352,11 @@ async def _get_authorized_application(
             raise not_found
     elif user.user_type == "RECRUITER":
         job = await JobPosting.get(app.job_id)
-        if job is None or user.company_id is None or job.company_id != user.company_id:
+        if (
+            job is None
+            or job.recruiter_id != user.id
+            or (user.company_id is not None and job.company_id != user.company_id)
+        ):
             raise not_found
     else:
         raise not_found
@@ -322,8 +403,6 @@ async def get_application_detail(
         cv_preview_url=f"/api/v1/applications/{app.id}/cv",
         cv_parsed_text=app.parsed_text,
         recruiter_note=app.recruiter_note if is_hr else None,
-        status_history=[StatusHistoryItem(status=h.status, time=h.time) for h in app.status_history],
-        interview_schedule=app.interview_schedule,
     )
 
 
@@ -584,12 +663,17 @@ async def update_application_status(
     job = await JobPosting.get(app.job_id)
     if job is None or job.deleted_at is not None:
         raise CVError(404, "Không tìm thấy tin tuyển dụng của hồ sơ này")
-    if user.user_type != "RECRUITER" or job.recruiter_id != user.id:
+    if (
+        user.user_type != "RECRUITER"
+        or job.recruiter_id != user.id
+        or (user.company_id is not None and job.company_id != user.company_id)
+    ):
         raise CVError(403, "Bạn không có quyền cập nhật hồ sơ ứng tuyển này")
 
     new_status = payload.pipeline_status
     status_changed = new_status != app.pipeline_status
     schedule = _build_interview_schedule(payload)
+    schedule_changed = schedule is not None and schedule != app.interview_schedule
     if new_status == "INTERVIEW" and status_changed and schedule is None and not app.interview_schedule:
         raise CVError(422, "Cần nhập lịch phỏng vấn (thời gian và địa điểm hoặc link) khi chuyển sang INTERVIEW")
 
@@ -598,16 +682,17 @@ async def update_application_status(
         app.recruiter_note = (payload.recruiter_note or "").strip() or None
     if schedule is not None:
         app.interview_schedule = schedule
-    if status_changed or schedule is not None:
+    if status_changed or schedule_changed:
         app.pipeline_status = new_status
         app.status_history.append(StatusHistory(status=new_status, changed_by=user.id, time=now))
     app.updated_at = now
     await app.save()
 
-    # Hàm thông báo của Cường không bao giờ raise; đổi trạng thái đã kèm lịch nên chỉ gửi 1 thông báo.
+    # Hàm thông báo của Cường không bao giờ raise; đổi trạng thái đã kèm lịch nên chỉ gửi 1 thông báo,
+    # và không gửi thông báo/email trùng lặp khi không có thay đổi thực tế.
     if status_changed:
         await notification_service.notify_application_status(app, background_tasks, new_status)
-    elif schedule is not None:
+    elif schedule_changed:
         await notification_service.notify_interview_schedule(app, background_tasks)
 
     return ApplicationStatusResponse(

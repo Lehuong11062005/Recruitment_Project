@@ -2,8 +2,7 @@ import json
 from typing import List, Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi import BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from app.core.deps import get_current_candidate, get_current_user
@@ -31,9 +30,13 @@ async def get_application_ai_analysis(
     return await application_service._application_response(app)
 
 
-@router.get("/me", response_model=List[ApplicationResponse], summary="Danh sách đơn ứng tuyển của tôi")
-async def list_my_applications(user: User = Depends(get_current_candidate)):
-    return await application_service.list_candidate_applications(user)
+@router.get("/me", response_model=List[ApplicationResponse], summary="Danh sách đơn ứng tuyển của tôi (UC-C7)")
+async def list_my_applications(
+    skip: int = Query(0, ge=0, description="Số bản ghi bỏ qua"),
+    limit: int = Query(50, ge=1, le=100, description="Số bản ghi tối đa"),
+    user: User = Depends(get_current_candidate),
+):
+    return await application_service.list_candidate_applications(user, skip=skip, limit=limit)
 
 
 @router.get("/{application_id}/cv", summary="Xem trước CV PDF gốc của đơn ứng tuyển (Task 8.3)",

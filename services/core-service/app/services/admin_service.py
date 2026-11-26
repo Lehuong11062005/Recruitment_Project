@@ -15,6 +15,10 @@ from app.schemas.admin import (
 )
 
 
+def _norm(value: object, default: str = "") -> str:
+    return str(value).strip().upper() if value is not None else default
+
+
 async def get_system_statistics() -> AdminStatisticsResponse:
     """Tổng hợp số liệu hệ thống cho Admin Dashboard (UC-A4 - Task 10.1)."""
     users = await User.find({"deleted_at": None}).to_list()
@@ -23,11 +27,11 @@ async def get_system_statistics() -> AdminStatisticsResponse:
     applications = await Application.find_all().to_list()
 
     # 1. Thống kê người dùng (bỏ qua bản ghi xóa mềm)
-    candidates = sum(1 for u in users if getattr(u, "user_type", None) == "CANDIDATE")
-    recruiters = sum(1 for u in users if getattr(u, "user_type", None) == "RECRUITER")
-    admins = sum(1 for u in users if getattr(u, "role", None) == "ADMIN")
-    active_users = sum(1 for u in users if getattr(u, "status", "ACTIVE") == "ACTIVE")
-    banned_users = sum(1 for u in users if getattr(u, "status", None) == "BANNED")
+    candidates = sum(1 for u in users if _norm(getattr(u, "user_type", None)) == "CANDIDATE")
+    recruiters = sum(1 for u in users if _norm(getattr(u, "user_type", None)) == "RECRUITER")
+    admins = sum(1 for u in users if _norm(getattr(u, "role", None)) == "ADMIN")
+    active_users = sum(1 for u in users if _norm(getattr(u, "status", "ACTIVE"), "ACTIVE") == "ACTIVE")
+    banned_users = sum(1 for u in users if _norm(getattr(u, "status", None)) == "BANNED")
 
     user_stats = UserStatistics(
         total=len(users),
@@ -49,13 +53,13 @@ async def get_system_statistics() -> AdminStatisticsResponse:
 
     # 2. Thống kê công ty (bỏ qua bản ghi xóa mềm)
     pending_companies = sum(
-        1 for c in companies if getattr(c, "verification_status", None) == "PENDING"
+        1 for c in companies if _norm(getattr(c, "verification_status", None)) == "PENDING"
     )
     verified_companies = sum(
-        1 for c in companies if getattr(c, "verification_status", None) == "VERIFIED"
+        1 for c in companies if _norm(getattr(c, "verification_status", None)) == "VERIFIED"
     )
     rejected_companies = sum(
-        1 for c in companies if getattr(c, "verification_status", None) == "REJECTED"
+        1 for c in companies if _norm(getattr(c, "verification_status", None)) == "REJECTED"
     )
 
     company_stats = CompanyStatistics(
@@ -70,10 +74,10 @@ async def get_system_statistics() -> AdminStatisticsResponse:
         },
     )
 
-    # 3. Thống kê tin tuyển dụng (bỏ qua bản ghi xóa mềm)
-    open_jobs = sum(1 for j in jobs if getattr(j, "status", None) == "OPEN")
-    closed_jobs = sum(1 for j in jobs if getattr(j, "status", None) == "CLOSED")
-    hidden_jobs = sum(1 for j in jobs if getattr(j, "status", None) == "HIDDEN")
+    # 3. Thống kê tin tuyển dụng (bỏ qua bản ghi xóa mềm, chuẩn hóa khoảng trắng dữ liệu cũ)
+    open_jobs = sum(1 for j in jobs if _norm(getattr(j, "status", None)) == "OPEN")
+    closed_jobs = sum(1 for j in jobs if _norm(getattr(j, "status", None)) == "CLOSED")
+    hidden_jobs = sum(1 for j in jobs if _norm(getattr(j, "status", None)) == "HIDDEN")
 
     job_stats = JobStatistics(
         total=len(jobs),
@@ -96,7 +100,7 @@ async def get_system_statistics() -> AdminStatisticsResponse:
         "REJECTED": 0,
     }
     for app in applications:
-        st = getattr(app, "pipeline_status", None) or "APPLIED"
+        st = _norm(getattr(app, "pipeline_status", None)) or "APPLIED"
         pipeline_counts[st] = pipeline_counts.get(st, 0) + 1
 
     application_stats = ApplicationStatistics(
