@@ -24,11 +24,11 @@ const STATUS_BADGE = {
   [PIPELINE_STATUS.REJECTED]: 'badge-red',
 };
 
-// AI Service trả cả khóa *_match lẫn *_score; mỗi tiêu chí chỉ hiển thị một lần.
+// AI Service trả cả khóa *_match lẫn *_score; mỗi tiêu chí chỉ hiển thị một lần theo thứ tự trọng số.
 const BREAKDOWN_ROWS = [
-  { label: 'Kỹ năng phù hợp', keys: ['skill_match', 'skill_score'] },
-  { label: 'Kinh nghiệm phù hợp', keys: ['experience_match', 'experience_score'] },
-  { label: 'Nội dung CV so với JD', keys: ['semantic_match', 'semantic_score'] },
+  { label: 'Kỹ năng phù hợp', shortLabel: 'Kỹ năng', keys: ['skill_score', 'skill_match'], weightKey: 'skill_weight' },
+  { label: 'Tương đồng ngữ nghĩa', shortLabel: 'Ngữ nghĩa', keys: ['semantic_score', 'semantic_match'], weightKey: 'semantic_weight' },
+  { label: 'Kinh nghiệm phù hợp', shortLabel: 'Kinh nghiệm', keys: ['experience_score', 'experience_match'], weightKey: 'experience_weight' },
 ];
 
 const safely = (fn) => new Promise((resolve) => resolve(fn()));
@@ -38,6 +38,36 @@ const hasScore = (score) => score !== null && score !== undefined && !Number.isN
 const clampPercent = (value) => Math.max(0, Math.min(100, Number(value) || 0));
 
 const formatScore = (score) => (hasScore(score) ? `${Math.round(Number(score))}%` : '—');
+
+const formatPoints = (value) => {
+  if (!hasScore(value)) return '0';
+  const num = Math.round(Number(value) * 10) / 10;
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
+};
+
+const formatWeightPct = (ratio) => {
+  if (!hasScore(ratio)) return null;
+  const pct = Math.round(Number(ratio) * 1000) / 10;
+  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+};
+
+const formatWeightsInline = (weights) => {
+  if (!weights || typeof weights !== 'object') return '';
+  const s = formatWeightPct(weights.skill_weight);
+  const sem = formatWeightPct(weights.semantic_weight);
+  const exp = formatWeightPct(weights.experience_weight);
+  if (s === null || sem === null || exp === null) return '';
+  return `Kỹ năng ${s}% · Ngữ nghĩa ${sem}% · Kinh nghiệm ${exp}%`;
+};
+
+const formatWeightsCompact = (weights) => {
+  if (!weights || typeof weights !== 'object') return '';
+  const s = formatWeightPct(weights.skill_weight);
+  const sem = formatWeightPct(weights.semantic_weight);
+  const exp = formatWeightPct(weights.experience_weight);
+  if (s === null || sem === null || exp === null) return '';
+  return `${s}%·${sem}%·${exp}%`;
+};
 
 const scoreLevel = (score) => {
   if (!hasScore(score)) return 'none';
@@ -60,24 +90,43 @@ const formatDate = (value) => {
   return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('vi-VN');
 };
 
-const getBreakdownRows = (breakdown) => {
+const getBreakdownRows = (breakdown, weightsSnapshot = null) => {
   if (!breakdown || typeof breakdown !== 'object') return [];
   const known = new Set();
   const rows = [];
 
-  BREAKDOWN_ROWS.forEach(({ label, keys }) => {
+  BREAKDOWN_ROWS.forEach(({ label, shortLabel, keys, weightKey }) => {
     keys.forEach((key) => known.add(key));
     const key = keys.find((candidate) => hasScore(breakdown[candidate]));
-    if (key) rows.push({ key, label, value: clampPercent(breakdown[key]) });
+    if (key) {
+      const value = clampPercent(breakdown[key]);
+      const rawWeight = weightsSnapshot?.[weightKey];
+      const weightPct = formatWeightPct(rawWeight);
+      const weightedPoints = hasScore(rawWeight) ? formatPoints(value * Number(rawWeight)) : null;
+      rows.push({ key, label, shortLabel, value, weightPct, weightedPoints });
+    }
   });
 
   Object.keys(breakdown).forEach((key) => {
     if (!known.has(key) && hasScore(breakdown[key])) {
-      rows.push({ key, label: key, value: clampPercent(breakdown[key]) });
+      rows.push({ key, label: key, shortLabel: key, value: clampPercent(breakdown[key]), weightPct: null, weightedPoints: null });
     }
   });
 
   return rows;
+};
+
+const buildCandidateTooltip = (item) => {
+  if (!hasScore(item?.ai_match_score)) return 'Chưa có điểm AI';
+  const header = `Điểm phù hợp: ${formatPoints(item.ai_match_score)}/100`;
+  const rows = getBreakdownRows(item.score_breakdown, item.matching_weights_snapshot);
+  if (!rows.length) return header;
+  const parts = rows.map((r) => (
+    r.weightPct !== null
+      ? `${r.shortLabel}: ${formatPoints(r.value)} điểm × ${r.weightPct}%`
+      : `${r.shortLabel}: ${formatPoints(r.value)} điểm`
+  ));
+  return `${header} (${parts.join(' | ')})`;
 };
 
 function ScoreRing({ score, large = false }) {
@@ -540,6 +589,7 @@ function InterviewNoteCard({ review }) {
 
 function RankingWorkspace({ jobId }) {
   const [jobTitle, setJobTitle] = useState('');
+  const [jobWeights, setJobWeights] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [loadState, setLoadState] = useState({ phase: 'loading', error: '' });
   const [reloadKey, setReloadKey] = useState(0);
@@ -554,16 +604,27 @@ function RankingWorkspace({ jobId }) {
   const [retryingId, setRetryingId] = useState('');
   const [retryError, setRetryError] = useState({ id: '', message: '' });
 
-  // Tên tin tuyển dụng (API riêng của recruiter, không có endpoint lấy 1 tin).
+  // Tên tin tuyển dụng và cấu hình trọng số hiện hành của tin đăng.
   useEffect(() => {
     let active = true;
-    safely(() => jobService.getMyJobs())
-      .then((response) => {
-        const rows = Array.isArray(response?.data) ? response.data : [];
-        const found = rows.find((job) => String(job.id || job._id) === String(jobId));
-        if (active && found) setJobTitle(found.title || '');
+    safely(() => jobService.getManagedJob(jobId))
+      .then((found) => {
+        if (!active || !found) return;
+        setJobTitle(found.title || '');
+        setJobWeights(found.matching_weights || null);
       })
-      .catch(() => {});
+      .catch(() => {
+        safely(() => jobService.getMyJobs())
+          .then((response) => {
+            const rows = Array.isArray(response?.data) ? response.data : [];
+            const found = rows.find((job) => String(job.id || job._id) === String(jobId));
+            if (active && found) {
+              setJobTitle(found.title || '');
+              setJobWeights(found.matching_weights || null);
+            }
+          })
+          .catch(() => {});
+      });
     return () => { active = false; };
   }, [jobId]);
 
@@ -667,6 +728,9 @@ function RankingWorkspace({ jobId }) {
           ...item,
           ai_match_score: data.ai_match_score,
           ai_status: data.ai_status,
+          matching_version: data.matching_version,
+          score_breakdown: data.score_breakdown || data.ai_analysis?.score_breakdown || null,
+          matching_weights_snapshot: data.matching_weights_snapshot || null,
           matched_skills: (data.ai_analysis?.matched || []).map(({ id: skillId, name }) => ({ id: skillId, name })),
           missing_skills: (data.ai_analysis?.missing || []).map(({ id: skillId, name }) => ({ id: skillId, name })),
         }
@@ -692,7 +756,11 @@ function RankingWorkspace({ jobId }) {
   const score = detail && hasScore(detail.ai_match_score) ? detail.ai_match_score : selected?.ai_match_score;
   const matchedSkills = analysis?.matched?.length ? analysis.matched : (selected?.matched_skills || []);
   const missingSkills = analysis?.missing?.length ? analysis.missing : (selected?.missing_skills || []);
-  const breakdownRows = getBreakdownRows(analysis?.score_breakdown);
+  const weightsSnapshot = detail?.matching_weights_snapshot || selected?.matching_weights_snapshot || null;
+  const breakdownSource = analysis?.score_breakdown || detail?.score_breakdown || selected?.score_breakdown || null;
+  const breakdownRows = getBreakdownRows(breakdownSource, weightsSnapshot);
+  const snapshotInline = formatWeightsInline(weightsSnapshot);
+  const jobWeightsInline = formatWeightsInline(jobWeights);
   const detailLoading = Boolean(activeId) && !entry;
   const isRetrying = retryingId === activeId && Boolean(activeId);
   const isProcessing = ['PENDING', 'PROCESSING'].includes(aiStatus);
@@ -747,7 +815,10 @@ function RankingWorkspace({ jobId }) {
       <section className="card crr-head">
         <div>
           <h2>{jobTitle || 'Tin tuyển dụng'}</h2>
-          <span className="crr-head-meta">{ranked.length} hồ sơ, sắp xếp giảm dần theo điểm AI</span>
+          <span className="crr-head-meta">
+            {ranked.length} hồ sơ, sắp xếp giảm dần theo điểm AI
+            {jobWeightsInline ? ` · Cấu hình trọng số tin đăng: ${jobWeightsInline}` : ''}
+          </span>
         </div>
         <div className="crr-head-tools">
           <div className="crr-chips" role="group" aria-label="Lọc theo trạng thái hồ sơ">
@@ -817,6 +888,7 @@ function RankingWorkspace({ jobId }) {
                   <button
                     type="button"
                     className="crr-row"
+                    title={buildCandidateTooltip(item)}
                     aria-current={item.id === activeId ? 'true' : undefined}
                     onClick={() => setSelectedId(item.id)}
                   >
@@ -829,6 +901,11 @@ function RankingWorkspace({ jobId }) {
                         <span className={`badge ${STATUS_BADGE[item.pipeline_status] || 'badge-gray'}`}>
                           {PIPELINE_STATUS_LABELS[item.pipeline_status] || item.pipeline_status}
                         </span>
+                        {item.matching_weights_snapshot && (
+                          <span className="badge badge-gray" title={`Trọng số áp dụng: ${formatWeightsInline(item.matching_weights_snapshot)}`}>
+                            TS: {formatWeightsCompact(item.matching_weights_snapshot)}
+                          </span>
+                        )}
                         {item.ai_status === 'FAILED' && <span className="badge badge-red">AI lỗi</span>}
                       </span>
                     </span>
@@ -859,7 +936,10 @@ function RankingWorkspace({ jobId }) {
                     <h3 id="crr-ai-title">Phân tích AI: {selected.full_name || 'Ứng viên'}</h3>
                     <span className="crr-ident-meta">
                       #{selected.rank} trong {ranked.length} hồ sơ
-                      {detail?.matching_version ? ` · Phiên bản chấm điểm ${detail.matching_version}` : ''}
+                      {!noScore ? ` · Điểm phù hợp: ${formatPoints(score)}/100` : ''}
+                      {(detail?.matching_version || selected?.matching_version)
+                        ? ` · Phiên bản ${detail?.matching_version || selected?.matching_version}`
+                        : ''}
                     </span>
                   </div>
                 </div>
@@ -895,13 +975,20 @@ function RankingWorkspace({ jobId }) {
                 {!isProcessing && !noScore && (
                   <>
                     <div>
-                      <h4 className="crr-block-title">Điểm thành phần</h4>
-                      {detailLoading && (
+                      <div className="crr-breakdown-head">
+                        <h4 className="crr-block-title">Điểm thành phần &amp; Trọng số đánh giá</h4>
+                        <span className="crr-weights-snapshot-badge" data-testid="crr-weights-snapshot">
+                          {snapshotInline
+                            ? `Trọng số đã sử dụng: ${snapshotInline}`
+                            : 'Trọng số mặc định: Kỹ năng 50% · Ngữ nghĩa 35% · Kinh nghiệm 15% (bản ghi trước v2.0)'}
+                        </span>
+                      </div>
+                      {detailLoading && breakdownRows.length === 0 && (
                         <div aria-busy="true" className="crr-breakdown">
                           <div className="crr-skel crr-skel-block" /><div className="crr-skel crr-skel-block" />
                         </div>
                       )}
-                      {entry?.error && (
+                      {entry?.error && breakdownRows.length === 0 && (
                         <div className="crr-alert" role="alert">
                           <Icon name="warning" size={18} />
                           <span><strong>Không tải được điểm thành phần</strong>{entry.error}</span>
@@ -913,7 +1000,14 @@ function RankingWorkspace({ jobId }) {
                         <div className="crr-breakdown">
                           {breakdownRows.map((row) => (
                             <div className="crr-metric" key={row.key}>
-                              <div className="crr-metric-top"><span>{row.label}</span><strong>{Math.round(row.value)}%</strong></div>
+                              <div className="crr-metric-top">
+                                <span>{row.label}</span>
+                                <strong>
+                                  {row.weightPct !== null
+                                    ? `${formatPoints(row.value)} điểm × ${row.weightPct}%`
+                                    : `${formatPoints(row.value)} điểm`}
+                                </strong>
+                              </div>
                               <div
                                 className="bar"
                                 role="progressbar"
@@ -924,6 +1018,9 @@ function RankingWorkspace({ jobId }) {
                               >
                                 <i style={{ width: `${row.value}%` }} />
                               </div>
+                              {row.weightedPoints !== null && (
+                                <span className="crr-metric-contrib">Đóng góp vào tổng điểm: {row.weightedPoints} điểm</span>
+                              )}
                             </div>
                           ))}
                         </div>

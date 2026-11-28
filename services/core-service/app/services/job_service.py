@@ -6,10 +6,15 @@ import httpx
 from fastapi import HTTPException, status
 from app.core.config import settings
 from app.models.company import Company
-from app.models.job import JobPosting
+from app.models.job import JobPosting, MatchingWeights
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
-from app.schemas.job import JobCreateSchema, JobUpdateSchema, JobStatusUpdateSchema
+from app.schemas.job import (
+    JobCreateSchema,
+    JobStatusUpdateSchema,
+    JobUpdateSchema,
+    resolve_matching_weights,
+)
 from datetime import timezone
 
 logger = logging.getLogger(__name__)
@@ -160,7 +165,10 @@ class JobService:
 
     @staticmethod
     async def update_job(job_id: str, job_in: JobUpdateSchema, current_user) -> JobPosting:
-        job = await JobPosting.get(job_id)
+        try:
+            job = await JobPosting.get(job_id)
+        except Exception:
+            job = None
         if not job or job.deleted_at is not None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
         
@@ -228,6 +236,28 @@ class JobService:
         return [names_by_id[str(skill_id)] for skill_id in required_skills if str(skill_id) in names_by_id]
 
     @staticmethod
+    def get_job_matching_weights(job: Any) -> Dict[str, float]:
+        raw = getattr(job, "matching_weights", None) if job is not None else None
+        return resolve_matching_weights(raw).model_dump()
+
+    @staticmethod
+    async def get_managed_job(job_id: str, current_user) -> JobPosting:
+        try:
+            job = await JobPosting.get(job_id)
+        except Exception:
+            job = None
+        if not job or job.deleted_at is not None:
+            raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
+        if job.recruiter_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bạn không có quyền truy cập tin tuyển dụng này",
+            )
+        if getattr(job, "matching_weights", None) is None:
+            job.matching_weights = MatchingWeights()
+        return job
+
+    @staticmethod
     async def create_job_with_embedding(job_in: JobCreateSchema, current_user) -> JobPosting:
         if not getattr(current_user, "company_id", None):
             raise HTTPException(
@@ -241,8 +271,11 @@ class JobService:
             job_in.description,
             skill_names,
         )
+        job_data = job_in.model_dump()
+        weights_dict = resolve_matching_weights(job_in.matching_weights).model_dump()
+        job_data["matching_weights"] = MatchingWeights(**weights_dict)
         job = JobPosting(
-            **job_in.model_dump(),
+            **job_data,
             company_id=current_user.company_id,
             recruiter_id=current_user.id,
             status="OPEN",
@@ -273,7 +306,10 @@ class JobService:
 
     @staticmethod
     async def update_job_with_embedding(job_id: str, job_in: JobUpdateSchema, current_user) -> JobPosting:
-        job = await JobPosting.get(job_id)
+        try:
+            job = await JobPosting.get(job_id)
+        except Exception:
+            job = None
         if not job or job.deleted_at is not None:
             raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
         if job.recruiter_id != current_user.id:
@@ -284,6 +320,8 @@ class JobService:
 
         update_data = job_in.model_dump(exclude_unset=True)
         if not update_data:
+            if getattr(job, "matching_weights", None) is None:
+                job.matching_weights = MatchingWeights()
             return job
 
         if any(field in update_data for field in ("title", "description", "required_skills")):
@@ -305,4 +343,6 @@ class JobService:
         updated_job = await JobPosting.get(job_id)
         if not updated_job:
             raise HTTPException(status_code=404, detail="Không tìm thấy tin tuyển dụng")
+        if getattr(updated_job, "matching_weights", None) is None:
+            updated_job.matching_weights = MatchingWeights()
         return updated_job

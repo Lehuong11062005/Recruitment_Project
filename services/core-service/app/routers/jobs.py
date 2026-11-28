@@ -9,13 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import get_current_candidate, get_current_recruiter
 from app.models.company import Company
-from app.models.job import JobPosting
+from app.models.job import JobPosting, MatchingWeights
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
 from app.schemas.job import (
     JobCreateSchema,
     JobStatusUpdateSchema,
     JobUpdateSchema,
+    resolve_matching_weights,
 )
 from app.schemas.application import RankedApplicationItem
 from app.services.application_service import list_job_applications_ranked
@@ -57,6 +58,7 @@ def _serialize_candidate_job(doc: dict) -> dict:
     # Không gửi vector nội bộ của AI sang frontend.
     doc.pop("job_embedding_vector", None)
     doc.pop("embedding_model", None)
+    doc["matching_weights"] = resolve_matching_weights(doc.get("matching_weights")).model_dump()
 
     for field in ("created_at", "updated_at", "deleted_at"):
         value = doc.get(field)
@@ -90,6 +92,7 @@ async def serialize_job(job: JobPosting) -> dict:
         "experience_required": job.experience_required,
         "salary": job.salary,
         "location": job.location,
+        "matching_weights": JobService.get_job_matching_weights(job),
         "views_count": job.views_count,
         "applications_count": job.applications_count,
         "status": job.status,
@@ -245,6 +248,15 @@ async def list_my_jobs(current_user=Depends(get_current_recruiter)):
     return {"data": [await serialize_job(job) for job in jobs]}
 
 
+@router.get("/managed/{job_id}", summary="Xem chi tiết tin tuyển dụng của nhà tuyển dụng")
+async def get_managed_job_detail(
+    job_id: str,
+    current_user=Depends(get_current_recruiter),
+):
+    job = await JobService.get_managed_job(job_id, current_user)
+    return await serialize_job(job)
+
+
 @router.get("/{job_id}", summary="Xem chi tiết việc làm đang tuyển")
 async def get_candidate_job_detail(job_id: str):
     try:
@@ -316,6 +328,8 @@ async def create_job(
     current_user=Depends(get_current_recruiter),
 ):
     job = await JobService.create_job(job_in, current_user)
+    if getattr(job, "matching_weights", None) is None:
+        job.matching_weights = MatchingWeights()
     return {
         "message": "Đăng tin tuyển dụng thành công!",
         "data": job,

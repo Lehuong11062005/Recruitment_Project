@@ -4,6 +4,8 @@ from beanie import Document, PydanticObjectId
 from pydantic import BaseModel, Field
 from pymongo import ASCENDING, IndexModel
 
+from app.models.job import MatchingWeights
+
 
 class StatusHistory(BaseModel):
     status: str
@@ -28,6 +30,7 @@ class Application(Document):
     recruiter_note: Optional[str] = None
     ai_match_score: Optional[float] = None
     matching_version: Optional[str] = "v1.0"
+    matching_weights_snapshot: Optional[MatchingWeights] = None
     ai_analysis: Optional[AIAnalysis] = None
     ai_status: Optional[str] = None
     ai_analyzed_at: Optional[datetime] = None

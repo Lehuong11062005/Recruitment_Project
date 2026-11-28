@@ -103,6 +103,11 @@ export const jobService = {
     return api.get('/api/v1/jobs/my-jobs');
   },
 
+  getManagedJob(jobId) {
+    requireJobsEnabled();
+    return api.get(`/api/v1/jobs/managed/${encodeURIComponent(String(jobId))}`);
+  },
+
   createJob(payload) {
     requireJobsEnabled();
     return api.post('/api/v1/jobs', payload);

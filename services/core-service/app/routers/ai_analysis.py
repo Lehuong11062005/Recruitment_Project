@@ -16,6 +16,7 @@ from app.models.job import JobPosting
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
 from app.schemas.application import AIAnalysisResponse, ApplicationResponse, SkillRef
+from app.schemas.job import MatchingWeightsSchema
 from app.services import application_service
 from app.services.cv_service import read_limited
 from app.services.cv_utils import CVError, match_skill_names, validate_pdf
@@ -29,6 +30,8 @@ class AIPreviewResponse(BaseModel):
     skills: List[SkillRef] = Field(default_factory=list)
     ai_match_score: float
     matching_version: str
+    score_breakdown: dict = Field(default_factory=dict)
+    matching_weights_snapshot: MatchingWeightsSchema | None = None
     embedding_vector: List[float] = Field(default_factory=list)
     ai_analysis: AIAnalysisResponse
 
@@ -114,11 +117,16 @@ async def preview_ai_matching(
     taxonomy, _ = _taxonomy_data(skills)
     candidate_skills = match_skill_names(parsed["skills"], taxonomy)
     analysis = _map_analysis(result, taxonomy)
+    snapshot = application_service._to_weights_schema(
+        application_service._extract_weights_snapshot(job, result)
+    )
     return AIPreviewResponse(
         parsed_text=parsed["parsed_text"],
         skills=[SkillRef(id=item["id"], name=item["name"], category=item.get("category")) for item in candidate_skills],
         ai_match_score=float(result["ai_match_score"]),
         matching_version=result["matching_version"],
+        score_breakdown=analysis.score_breakdown or {},
+        matching_weights_snapshot=snapshot,
         embedding_vector=[
             float(value)
             for value in result.get("embedding_vector", parsed["embedding_vector"])
@@ -236,6 +244,7 @@ async def retry_ai_analysis(
         ]
         app.ai_match_score = float(result["ai_match_score"])
         app.matching_version = result["matching_version"]
+        app.matching_weights_snapshot = application_service._extract_weights_snapshot(job, result)
         app.ai_analysis = _map_analysis(result, taxonomy)
         app.ai_status = "DONE"
         app.ai_analyzed_at = datetime.utcnow()

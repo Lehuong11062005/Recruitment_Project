@@ -1,0 +1,120 @@
+{
+  "generated_at_utc": "2026-11-27T17:04:47.257872+00:00",
+  "ai_service_health": {
+    "status": "healthy",
+    "service": "ai-service",
+    "model": "paraphrase-multilingual-MiniLM-L12-v2"
+  },
+  "matching_version": "v2.0-configurable",
+  "dataset_readiness": {
+    "dataset_source": "CV\\CV_JD-20261127T160544Z-1-001.zip",
+    "cv_pdf_count": 46,
+    "jd_txt_count": 14,
+    "cv_metadata_rows": 46,
+    "jd_metadata_rows": 14,
+    "total_cv_jd_pairs": 644,
+    "cv_filename_exact_match": true,
+    "jd_filename_exact_match": true,
+    "unreadable_or_empty_pdfs": [],
+    "duplicate_pdfs_by_sha256": {},
+    "cvs_with_empty_skills_ground_truth": [
+      "cv_035_KeToan.pdf",
+      "cv_036_KeToan.pdf"
+    ],
+    "unmapped_cv_ground_truth_skills": {},
+    "unmapped_jd_required_skills": {},
+    "n_skills_column_mismatches": [],
+    "dataset_taxonomy_count": 135,
+    "ai_service_taxonomy_count": 135,
+    "ground_truth_labeling_note": "Theo README.md của bộ dữ liệu, skills_ground_truth chỉ được gán nhãn từ mục 'Kỹ năng' của CV (không bao gồm kỹ năng chỉ nhắc tới trong phần Kinh nghiệm/Dự án).",
+    "human_pair_score_ground_truth_available": false,
+    "human_pair_relevance_ground_truth_available": false,
+    "human_pair_ground_truth_rows": 0,
+    "mae_status": "BLOCKED (Missing Human Ground Truth CV-JD scores)",
+    "precision_at_5_status": "BLOCKED (Missing Human Ground Truth CV-JD relevance labels)",
+    "readme_excerpt": "# Bộ dữ liệu CV – JD (Task 2.4, 2.5)\n\n- `cv/`: 46 CV PDF tổng hợp (IT 19, Marketing 8, Sales 7, Kế toán 4, Nhân sự 4, Thiết kế 4). Mỗi CV có tên, nội dung, bố cục khác nhau (3 kiểu: classic, sidebar, minimal).\n- `jd/`: 14 JD tiếng Việt (.txt) khớp với các ngành trong CV.\n- `cv_metadata.csv`, `jd_metadata.csv`: nhãn ngành, cấp bậc, kỹ năng chuẩn (ground truth).\n- `skill_taxonomy.json`: Skill Taxonomy (Task 2.6) kèm nhóm và alias.\n\nLưu ý: toàn bộ tên người, công ty, email (example.com), số điện thoại là dữ liệu giả. \n`skills_ground_truth` chỉ lấy từ mục \"Kỹ năng\" của CV và chuẩn hóa theo taxonomy; CV Kế toán, Nhân sự có ít hoặc không có kỹ năng công nghệ nên cột này có thể rỗng."
+  },
+  "skill_extraction_evaluation": {
+    "evaluated_cvs_total": 46,
+    "cvs_with_nonempty_gt": 44,
+    "cvs_with_empty_gt": 2,
+    "total_tp": 351,
+    "total_fp": 17,
+    "total_fn": 2,
+    "micro_precision": 0.9538,
+    "micro_recall": 0.9943,
+    "micro_f1": 0.9736,
+    "macro_all_46_precision": 0.9147,
+    "macro_all_46_recall": 0.9523,
+    "macro_all_46_f1": 0.9289,
+    "macro_nonempty_44_precision": 0.9563,
+    "macro_nonempty_44_recall": 0.9955,
+    "macro_nonempty_44_f1": 0.9711
+  },
+  "weight_configuration_comparison": {
+    "configs": {
+      "baseline_50_35_15": {
+        "weights": {
+          "skill_weight": 0.5,
+          "semantic_weight": 0.35,
+          "experience_weight": 0.15
+        },
+        "pairs_evaluated": 644,
+        "mean_score": 36.38,
+        "std_score": 16.24,
+        "min_score": 4.7,
+        "max_score": 94.7,
+        "ge_80_count": 26,
+        "between_60_80_count": 31,
+        "lt_60_count": 587
+      },
+      "config_a_60_25_15": {
+        "weights": {
+          "skill_weight": 0.6,
+          "semantic_weight": 0.25,
+          "experience_weight": 0.15
+        },
+        "pairs_evaluated": 644,
+        "mean_score": 33.75,
+        "std_score": 18.03,
+        "min_score": 3.4,
+        "max_score": 96.2,
+        "ge_80_count": 33,
+        "between_60_80_count": 24,
+        "lt_60_count": 587
+      },
+      "config_b_40_20_40": {
+        "weights": {
+          "skill_weight": 0.4,
+          "semantic_weight": 0.2,
+          "experience_weight": 0.4
+        },
+        "pairs_evaluated": 644,
+        "mean_score": 50.48,
+        "std_score": 15.45,
+        "min_score": 2.7,
+        "max_score": 97.0,
+        "ge_80_count": 37,
+        "between_60_80_count": 74,
+        "lt_60_count": 533
+      }
+    },
+    "mae": {
+      "status": "BLOCKED",
+      "reason": "Bộ dữ liệu CV_JD hiện chưa có điểm đánh giá thủ công của con người (Human Ground Truth Score) cho các cặp CV–JD; tuân thủ nguyên tắc không tự tạo điểm giả."
+    },
+    "precision_at_5": {
+      "status": "BLOCKED",
+      "reason": "Bộ dữ liệu CV_JD hiện chưa có nhãn phù hợp (Human Relevance Labels) cho các cặp CV–JD; tuân thủ nguyên tắc không tự gán nhãn thay con người."
+    },
+    "per_jd_rank_shifts_summary": {
+      "total_jds": 14,
+      "top1_changed_base_vs_a": 0,
+      "top1_changed_base_vs_b": 0,
+      "avg_top5_overlap_base_vs_a": 4.93,
+      "avg_top5_overlap_base_vs_b": 4.71,
+      "avg_spearman_base_vs_a": 0.9917,
+      "avg_spearman_base_vs_b": 0.9388
+    }
+  }
+}

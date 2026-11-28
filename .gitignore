@@ -1,9 +1,16 @@
 node_modules/
 __pycache__/
 venv/
-.env
-uploads/
-
 .venv/
-venv/
+uploads/
 cv_test_report/
+
+# Environment variables (keep example templates tracked)
+.env
+.env.*
+!.env.example
+
+# Runtime logs and database dumps
+*.log
+*.dump
+*.bson
