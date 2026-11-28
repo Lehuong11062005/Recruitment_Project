@@ -24,9 +24,11 @@ from app.core.config import settings
 from app.core.storage import CV_DIR, UPLOAD_URL_PREFIX
 from app.models.application import AIAnalysis, Application, StatusHistory
 from app.models.company import Company
-from app.models.job import JobPosting
+from app.models.job import JobPosting, MatchingWeights
 from app.models.skill import SkillsTaxonomy
 from app.models.user import User
+from app.schemas.job import MatchingWeightsSchema, resolve_matching_weights
+from app.services.job_service import JobService
 from app.schemas.application import (
     AIAnalysisResponse,
     ApplicationCompanyBrief,
@@ -109,6 +111,34 @@ async def _call_ai_parse(filename: str, data: bytes) -> Optional[Dict[str, Any]]
         return None
 
 
+def _to_weights_schema(raw: Any) -> Optional[MatchingWeightsSchema]:
+    """Chuyển snapshot lưu trong DB sang schema trả về; giữ nguyên None cho bản ghi cũ."""
+    if raw is None:
+        return None
+    if isinstance(raw, MatchingWeightsSchema):
+        return raw
+    data = raw.model_dump() if hasattr(raw, "model_dump") else raw
+    if not isinstance(data, dict) or not data:
+        return None
+    try:
+        return MatchingWeightsSchema.model_validate(data)
+    except Exception:
+        return None
+
+
+def _extract_weights_snapshot(
+    job: Any,
+    ai_payload: Optional[Dict[str, Any]] = None,
+) -> MatchingWeights:
+    """Lấy snapshot trọng số từ phản hồi AI Service, hoặc fallback từ cấu hình JobPosting."""
+    if isinstance(ai_payload, dict):
+        raw_snap = ai_payload.get("matching_weights_snapshot")
+        checked = _to_weights_schema(raw_snap)
+        if checked is not None:
+            return MatchingWeights(**checked.model_dump())
+    return MatchingWeights(**JobService.get_job_matching_weights(job))
+
+
 async def _call_ai_match(
     parsed_text: str,
     candidate_skills: List[str],
@@ -118,6 +148,7 @@ async def _call_ai_match(
 ) -> Optional[Dict[str, Any]]:
     """Match parsed CV data against a job using the AI Service JSON contract."""
     url = _ai_url(AI_MATCH_PATH)
+    weights_dict = JobService.get_job_matching_weights(job)
     body = {
         "cv_text": parsed_text,
         "jd_text": f"{job.title}\n{job.description}",
@@ -125,6 +156,7 @@ async def _call_ai_match(
         "required_skills": required_names,
         "candidate_experience_years": candidate_experience_years,
         "job_experience_required": float(job.experience_required or 0),
+        "matching_weights": weights_dict,
     }
     try:
         async with httpx.AsyncClient(timeout=settings.AI_TIMEOUT_SECONDS) as client:
@@ -236,6 +268,10 @@ def _to_response(
         ai_status=normalized_status,
         ai_match_score=app.ai_match_score,
         matching_version=app.matching_version,
+        score_breakdown=analysis.score_breakdown if analysis is not None else None,
+        matching_weights_snapshot=_to_weights_schema(
+            getattr(app, "matching_weights_snapshot", None)
+        ),
         ai_analysis=analysis,
         ai_analyzed_at=getattr(app, "ai_analyzed_at", None),
         parsed_text_preview=(app.parsed_text or "")[:300] or None,
@@ -437,6 +473,7 @@ async def apply_job(
     embedding = None
     score = None
     analysis = None
+    weights_snapshot = None
     ai_status = "FAILED"
     version = "v1.0"
     parsed = await _call_ai_parse(filename, data)
@@ -453,6 +490,7 @@ async def apply_job(
         if ai is not None:
             score = _clamp_score(ai["ai_match_score"])
             version = ai["matching_version"]
+            weights_snapshot = _extract_weights_snapshot(job, ai)
             match_embedding = ai["embedding_vector"]
             if match_embedding:
                 embedding = [float(value) for value in match_embedding]
@@ -484,7 +522,10 @@ async def apply_job(
         parsed_text=parsed_text, embedding_vector=embedding,
         pipeline_status="APPLIED",
         status_history=[StatusHistory(status="APPLIED", changed_by=user.id)],
-        ai_match_score=score, matching_version=version, ai_analysis=analysis,
+        ai_match_score=score,
+        matching_version=version,
+        matching_weights_snapshot=weights_snapshot,
+        ai_analysis=analysis,
         ai_status=ai_status,
         ai_analyzed_at=datetime.utcnow() if score is not None else None,
     )
@@ -562,6 +603,9 @@ async def list_job_applications_ranked(
                 "candidate_id": 1,
                 "ai_match_score": 1,
                 "ai_status": 1,
+                "matching_version": 1,
+                "matching_weights_snapshot": 1,
+                "score_breakdown": "$ai_analysis.score_breakdown",
                 "pipeline_status": 1,
                 "applied_at": 1,
                 "full_name": {"$ifNull": ["$candidate.full_name", ""]},
@@ -604,6 +648,11 @@ async def list_job_applications_ranked(
             ai_status="DONE" if row.get("ai_status") == "COMPLETED" else (
                 row.get("ai_status")
                 or ("DONE" if row.get("ai_match_score") is not None else "FAILED")
+            ),
+            matching_version=row.get("matching_version"),
+            score_breakdown=row.get("score_breakdown"),
+            matching_weights_snapshot=_to_weights_schema(
+                row.get("matching_weights_snapshot")
             ),
             pipeline_status=row["pipeline_status"],
             applied_at=row["applied_at"],

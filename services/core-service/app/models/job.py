@@ -1,8 +1,14 @@
-
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from beanie import Document, PydanticObjectId
-from pydantic import Field
+from pydantic import BaseModel, Field
+
+
+class MatchingWeights(BaseModel):
+    skill_weight: float = 0.50
+    semantic_weight: float = 0.35
+    experience_weight: float = 0.15
+
 
 class JobPosting(Document):
     company_id: PydanticObjectId          # FK tham chiếu companies
@@ -14,6 +20,7 @@ class JobPosting(Document):
     experience_required: int = 0
     salary: Optional[Dict[str, Any]] = None       # {"min": 1000, "max": 2000, "currency": "VND"}
     location: Optional[str] = None
+    matching_weights: Optional[MatchingWeights] = Field(default_factory=MatchingWeights)
     job_embedding_vector: Optional[List[float]] = None
     embedding_model: Optional[str] = "paraphrase-multilingual-MiniLM-L12-v2"
     views_count: int = 0

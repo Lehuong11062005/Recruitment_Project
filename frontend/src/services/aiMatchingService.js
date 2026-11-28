@@ -14,13 +14,17 @@ export const aiMatchingService = {
     return api.post('/api/v1/ai/parse-cv', formData);
   },
   matchCVToJob(payload) {
-    return api.post('/api/v1/ai/match', {
+    const body = {
       cv_text: payload.cvText,
       jd_text: payload.jdText,
       candidate_skills: payload.candidateSkills || [],
       required_skills: payload.requiredSkills || [],
       candidate_experience_years: payload.candidateExperienceYears || 0,
       job_experience_required: payload.jobExperienceRequired || 0,
-    });
+    };
+    if (payload.matchingWeights) {
+      body.matching_weights = payload.matchingWeights;
+    }
+    return api.post('/api/v1/ai/match', body);
   },
 };

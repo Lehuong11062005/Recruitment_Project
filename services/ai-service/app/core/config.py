@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     # Cấu hình mô hình Sentence-BERT
     MODEL_NAME: str = "paraphrase-multilingual-MiniLM-L12-v2"
-    MATCHING_VERSION: str = "v1.0-SBERT"
+    MATCHING_VERSION: str = "v2.0-configurable"
 
     # Giới hạn file PDF và đường dẫn file 135 kỹ năng của Cường
     MAX_PDF_SIZE_MB: int = 10

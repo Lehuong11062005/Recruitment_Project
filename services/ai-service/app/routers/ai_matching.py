@@ -1,11 +1,13 @@
 import json
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from pydantic import ValidationError
 
 from app.core.config import settings
 from app.schemas.matching import (
     ParseCVResponse,
     MatchingRequest,
     MatchingResponse,
+    MatchingWeights,
     EmbeddingRequest,
     EmbeddingResponse,
 )
@@ -47,7 +49,24 @@ async def match_uploaded_cv_endpoint(
     required_skills: str = Form(""),
     candidate_experience_years: float = Form(0.0, ge=0),
     job_experience_required: float = Form(0.0, ge=0),
+    matching_weights: str = Form(""),
 ):
+    parsed_weights = None
+    if matching_weights.strip():
+        try:
+            raw_weights = json.loads(matching_weights)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=422, detail="matching_weights phải là JSON object hợp lệ.") from exc
+        if not isinstance(raw_weights, dict):
+            raise HTTPException(status_code=422, detail="matching_weights phải là JSON object.")
+        try:
+            parsed_weights = MatchingWeights.model_validate(raw_weights)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=exc.errors(include_context=False),
+            ) from exc
+
     pdf_bytes = await file.read(settings.MAX_PDF_SIZE_MB * 1024 * 1024 + 1)
     parsed = CVParserService.parse_pdf_full(
         filename=file.filename or "cv.pdf",
@@ -70,6 +89,7 @@ async def match_uploaded_cv_endpoint(
             required_skills=skills,
             candidate_experience_years=candidate_experience_years,
             job_experience_required=job_experience_required,
+            matching_weights=parsed_weights,
         )
     )
 

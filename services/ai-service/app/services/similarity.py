@@ -1,6 +1,7 @@
+import math
 import re
 import unicodedata
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -11,6 +12,7 @@ from app.schemas.matching import (
     AIAnalysisBreakdown,
     MatchingRequest,
     MatchingResponse,
+    MatchingWeights,
 )
 from app.services.cv_parser import CVParserService
 
@@ -45,7 +47,45 @@ class SimilarityService:
         return aliases
 
     @classmethod
+    def resolve_weights(cls, weights: Optional[Any] = None) -> MatchingWeights:
+        if weights is None:
+            return MatchingWeights.default()
+        if isinstance(weights, MatchingWeights):
+            return weights
+        return MatchingWeights.model_validate(weights)
+
+    @classmethod
+    def compute_weighted_score(
+        cls,
+        skill_score: float,
+        semantic_score: float,
+        experience_score: float,
+        weights: Optional[Any] = None,
+    ) -> Tuple[float, MatchingWeights]:
+        resolved_weights = cls.resolve_weights(weights)
+        for label, val in (
+            ("skill_score", skill_score),
+            ("semantic_score", semantic_score),
+            ("experience_score", experience_score),
+        ):
+            if isinstance(val, bool) or not isinstance(val, (int, float)) or not math.isfinite(float(val)):
+                raise ValueError(f"{label} phải là số hữu hạn hợp lệ.")
+            if float(val) < 0.0 or float(val) > 100.0:
+                raise ValueError(f"{label} phải nằm trong khoảng 0 đến 100.")
+
+        final_score = round(
+            resolved_weights.skill_weight * float(skill_score)
+            + resolved_weights.semantic_weight * float(semantic_score)
+            + resolved_weights.experience_weight * float(experience_score),
+            1,
+        )
+        return final_score, resolved_weights
+
+    @classmethod
     def evaluate_cv_jd(cls, payload: MatchingRequest) -> MatchingResponse:
+        # Validate weights upfront before running model inference
+        resolved_weights = cls.resolve_weights(payload.matching_weights)
+
         model = ModelLoader.get_model()
         cv_text = CVParserService.clean_text(payload.cv_text)
         jd_text = CVParserService.clean_text(payload.jd_text)
@@ -109,11 +149,11 @@ class SimilarityService:
                 1,
             )
 
-        final_score = round(
-            settings.SKILL_WEIGHT * skill_score
-            + settings.SEMANTIC_WEIGHT * semantic_score
-            + settings.EXPERIENCE_WEIGHT * experience_score,
-            1,
+        final_score, resolved_weights = cls.compute_weighted_score(
+            skill_score=skill_score,
+            semantic_score=semantic_score,
+            experience_score=experience_score,
+            weights=resolved_weights,
         )
         level = (
             "rất phù hợp" if final_score >= 80
@@ -126,24 +166,27 @@ class SimilarityService:
             f"Hồ sơ {level} với vị trí (điểm {final_score:.1f}/100). "
             f"Kỹ năng khớp: {matched_text}. Cần lưu ý khi phỏng vấn: {missing_text}."
         )
+        breakdown = {
+            "skill_score": skill_score,
+            "experience_score": experience_score,
+            "semantic_score": semantic_score,
+            "skill_match": skill_score,
+            "semantic_match": semantic_score,
+            "experience_match": experience_score,
+        }
 
         return MatchingResponse(
             ai_match_score=final_score,
             matching_version=settings.MATCHING_VERSION,
+            score_breakdown=dict(breakdown),
+            matching_weights_snapshot=resolved_weights,
             embedding_vector=cv_embedding.tolist(),
             ai_analysis=AIAnalysisBreakdown(
                 matched=matched,
                 missing=missing,
                 matched_skills=matched,
                 missing_skills=missing,
-                score_breakdown={
-                    "skill_score": skill_score,
-                    "experience_score": experience_score,
-                    "semantic_score": semantic_score,
-                    "skill_match": skill_score,
-                    "semantic_match": semantic_score,
-                    "experience_match": experience_score,
-                },
+                score_breakdown=breakdown,
                 recommendation=recommendation,
             ),
         )

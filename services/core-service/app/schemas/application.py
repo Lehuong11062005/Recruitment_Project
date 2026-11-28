@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Literal, Optional
 from beanie import PydanticObjectId
 from pydantic import BaseModel, Field
 
+from app.schemas.job import MatchingWeightsSchema
 from app.schemas.notification import UTCDatetime
 
 
@@ -61,6 +62,8 @@ class ApplicationResponse(BaseModel):
     ]   # AI chấm điểm được hay chưa
     ai_match_score: Optional[float] = None
     matching_version: Optional[str] = None
+    score_breakdown: Optional[Dict[str, float]] = None
+    matching_weights_snapshot: Optional[MatchingWeightsSchema] = None
     ai_analysis: Optional[AIAnalysisResponse] = None
     ai_analyzed_at: Optional[datetime] = None
     parsed_text_preview: Optional[str] = None          # 300 ký tự đầu để kiểm tra nhanh
@@ -106,6 +109,9 @@ class RankedApplicationItem(BaseModel):
     phone: Optional[str] = None
     ai_match_score: Optional[float] = None
     ai_status: Optional[str] = None
+    matching_version: Optional[str] = None
+    score_breakdown: Optional[Dict[str, float]] = None
+    matching_weights_snapshot: Optional[MatchingWeightsSchema] = None
     pipeline_status: str
     applied_at: datetime
     matched_skills: List[RankedSkillItem] = Field(default_factory=list)
